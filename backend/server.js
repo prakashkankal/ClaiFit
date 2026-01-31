@@ -5,6 +5,7 @@ import connectDB from './config/db.js';
 import tailorRoutes from './routes/tailorRoutes.js';
 import userRoutes from './routes/userRoutes.js';
 import orderRoutes from './routes/orderRoutes.js';
+import presetRoutes from './routes/presetRoutes.js';
 
 dotenv.config();
 
@@ -24,6 +25,7 @@ app.use(express.urlencoded({ limit: '10mb', extended: true }));
 app.use('/api/tailors', tailorRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/orders', orderRoutes);
+app.use('/api/presets', presetRoutes);
 
 app.get('/', (req, res) => {
     res.send('API is running...');

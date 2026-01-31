@@ -114,6 +114,64 @@ router.get('/:tailorId', async (req, res) => {
     }
 });
 
+// @desc    Get order details by ID
+// @route   GET /api/orders/details/:orderId
+// @access  Private
+router.get('/details/:orderId', async (req, res) => {
+    try {
+        const { orderId } = req.params;
+
+        // Validate order ID format
+        if (!mongoose.Types.ObjectId.isValid(orderId)) {
+            return res.status(400).json({ message: 'Invalid order ID format' });
+        }
+
+        const order = await Order.findById(orderId);
+
+        if (!order) {
+            return res.status(404).json({ message: 'Order not found' });
+        }
+
+        res.json({ order });
+    } catch (error) {
+        console.error('Get order details error:', error);
+        res.status(500).json({ message: 'Error fetching order details', error: error.message });
+    }
+});
+
+// @desc    Update order notes
+// @route   PUT /api/orders/:orderId/notes
+// @access  Private
+router.put('/:orderId/notes', async (req, res) => {
+    try {
+        const { orderId } = req.params;
+        const { notes } = req.body;
+
+        // Validate order ID format
+        if (!mongoose.Types.ObjectId.isValid(orderId)) {
+            return res.status(400).json({ message: 'Invalid order ID format' });
+        }
+
+        const order = await Order.findById(orderId);
+
+        if (!order) {
+            return res.status(404).json({ message: 'Order not found' });
+        }
+
+        // Update notes
+        const updatedOrder = await Order.findByIdAndUpdate(
+            orderId,
+            { notes },
+            { new: true, runValidators: true }
+        );
+
+        res.json({ message: 'Notes updated successfully', order: updatedOrder });
+    } catch (error) {
+        console.error('Update order notes error:', error);
+        res.status(500).json({ message: 'Error updating order notes', error: error.message });
+    }
+});
+
 // @desc    Create a new order
 // @route   POST /api/orders
 // @access  Private
@@ -125,29 +183,55 @@ router.post('/', async (req, res) => {
             customerName,
             customerEmail,
             customerPhone,
+            dueDate,
+            notes,
+            advancePayment,
+            // Multi-item order fields
+            orderItems,
+            // Legacy single-item order fields
             orderType,
             description,
             measurements,
-            price,
-            advancePayment,
-            dueDate,
-            notes
+            price
         } = req.body;
 
-        const order = await Order.create({
+        // Determine if this is a multi-item or legacy single-item order
+        const isMultiItem = orderItems && orderItems.length > 0;
+
+        let orderData = {
             tailorId,
             customerId,
             customerName,
             customerEmail,
             customerPhone,
-            orderType,
-            description,
-            measurements,
-            price,
-            advancePayment,
             dueDate,
-            notes
-        });
+            notes: notes || '',
+            advancePayment: advancePayment || 0,
+            status: 'Order Created'
+        };
+
+        if (isMultiItem) {
+            // Multi-item order
+            // Calculate total price from all items
+            const totalPrice = orderItems.reduce((sum, item) => sum + (item.totalPrice || 0), 0);
+
+            orderData = {
+                ...orderData,
+                orderItems,
+                price: totalPrice
+            };
+        } else {
+            // Legacy single-item order
+            orderData = {
+                ...orderData,
+                orderType,
+                description,
+                measurements,
+                price
+            };
+        }
+
+        const order = await Order.create(orderData);
 
         res.status(201).json(order);
     } catch (error) {
@@ -164,17 +248,51 @@ router.put('/:orderId/status', async (req, res) => {
         const { orderId } = req.params;
         const { status } = req.body;
 
-        const order = await Order.findByIdAndUpdate(
-            orderId,
-            { status },
-            { new: true, runValidators: true }
-        );
+        // Get current order
+        const order = await Order.findById(orderId);
 
         if (!order) {
             return res.status(404).json({ message: 'Order not found' });
         }
 
-        res.json(order);
+        // Validate status transitions
+        const validTransitions = {
+            'Order Created': ['Cutting Completed'],
+            'Cutting Completed': ['Order Completed'],
+            'Order Completed': [], // Final status, no transitions allowed
+            // Legacy statuses for backward compatibility
+            'Pending': ['In Progress', 'Cancelled'],
+            'In Progress': ['Completed', 'Cancelled'],
+            'Completed': ['Delivered'],
+            'Delivered': [],
+            'Cancelled': []
+        };
+
+        const currentStatus = order.status;
+        const allowedStatuses = validTransitions[currentStatus] || [];
+
+        if (!allowedStatuses.includes(status)) {
+            return res.status(400).json({
+                message: `Invalid status transition from "${currentStatus}" to "${status}". Allowed transitions: ${allowedStatuses.join(', ') || 'None'}`
+            });
+        }
+
+        // Update status and timestamps
+        const updateData = { status };
+
+        if (status === 'Cutting Completed') {
+            updateData.cuttingCompletedAt = new Date();
+        } else if (status === 'Order Completed') {
+            updateData.completedAt = new Date();
+        }
+
+        const updatedOrder = await Order.findByIdAndUpdate(
+            orderId,
+            updateData,
+            { new: true, runValidators: true }
+        );
+
+        res.json(updatedOrder);
     } catch (error) {
         console.error('Update order status error:', error);
         res.status(500).json({ message: 'Error updating order status', error: error.message });

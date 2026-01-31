@@ -9,6 +9,7 @@ const TailorOrders = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [selectedStatus, setSelectedStatus] = useState('All');
+    const [updatingOrder, setUpdatingOrder] = useState(null); // Track which order is being updated
 
     useEffect(() => {
         const userInfo = localStorage.getItem('userInfo');
@@ -64,9 +65,46 @@ const TailorOrders = () => {
         setTailorData(updatedData);
     };
 
+    const handleStatusUpdate = async (orderId, newStatus) => {
+        try {
+            setUpdatingOrder(orderId);
+
+            const response = await fetch(`http://localhost:5000/api/orders/${orderId}/status`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ status: newStatus })
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.message || 'Failed to update status');
+            }
+
+            // Refresh orders list
+            const ordersResponse = await fetch(`http://localhost:5000/api/orders/${tailorData._id}`);
+            if (ordersResponse.ok) {
+                const data = await ordersResponse.json();
+                setOrders(data.orders || []);
+            }
+
+            alert(`Order status updated to "${newStatus}"`);
+        } catch (err) {
+            console.error('Error updating status:', err);
+            alert(err.message || 'Failed to update order status');
+        } finally {
+            setUpdatingOrder(null);
+        }
+    };
+
     // Calculate stats from orders
     const stats = {
         total: orders.length,
+        orderCreated: orders.filter(o => o.status === 'Order Created').length,
+        cuttingCompleted: orders.filter(o => o.status === 'Cutting Completed').length,
+        orderCompleted: orders.filter(o => o.status === 'Order Completed').length,
+        // Legacy statuses
         inProgress: orders.filter(o => o.status === 'In Progress').length,
         completed: orders.filter(o => o.status === 'Completed').length,
         pending: orders.filter(o => o.status === 'Pending').length,
@@ -136,14 +174,22 @@ const TailorOrders = () => {
                         <p className="text-3xl font-bold text-emerald-600">{stats.completed}</p>
                     </div>
                     <div className="bg-white border-2 border-dashed border-gray-300 p-6 rounded-2xl">
-                        <p className="text-slate-500 text-sm mb-1">Pending</p>
-                        <p className="text-3xl font-bold text-amber-600">{stats.pending}</p>
+                        <p className="text-slate-500 text-sm mb-1">Order Created</p>
+                        <p className="text-3xl font-bold text-amber-600">{stats.orderCreated}</p>
+                    </div>
+                    <div className="bg-white border-2 border-dashed border-gray-300 p-6 rounded-2xl">
+                        <p className="text-slate-500 text-sm mb-1">Cutting Completed</p>
+                        <p className="text-3xl font-bold text-[#6b4423]">{stats.cuttingCompleted}</p>
+                    </div>
+                    <div className="bg-white border-2 border-dashed border-gray-300 p-6 rounded-2xl">
+                        <p className="text-slate-500 text-sm mb-1">Order Completed</p>
+                        <p className="text-3xl font-bold text-emerald-600">{stats.orderCompleted}</p>
                     </div>
                 </div>
 
                 {/* Filter Buttons */}
                 <div className="mb-6 flex gap-3 flex-wrap">
-                    {['All', 'Pending', 'In Progress', 'Completed'].map((status) => (
+                    {['All', 'Order Created', 'Cutting Completed', 'Order Completed'].map((status) => (
                         <button
                             key={status}
                             onClick={() => setSelectedStatus(status)}
@@ -194,8 +240,9 @@ const TailorOrders = () => {
                                         <th className="px-6 py-4 text-left text-sm font-semibold text-slate-700">Phone</th>
                                         <th className="px-6 py-4 text-left text-sm font-semibold text-slate-700">Item</th>
                                         <th className="px-6 py-4 text-left text-sm font-semibold text-slate-700">Status</th>
+                                        <th className="px-6 py-4 text-left text-sm font-semibold text-slate-700">Due Date</th>
                                         <th className="px-6 py-4 text-left text-sm font-semibold text-slate-700">Amount</th>
-                                        <th className="px-6 py-4 text-left text-sm font-semibold text-slate-700">Date</th>
+                                        <th className="px-6 py-4 text-left text-sm font-semibold text-slate-700">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -208,20 +255,46 @@ const TailorOrders = () => {
                                             <td className="px-6 py-4 text-sm text-slate-600">{order.customerPhone}</td>
                                             <td className="px-6 py-4 text-sm text-slate-700">{order.orderType}</td>
                                             <td className="px-6 py-4">
-                                                <span className={`px-3 py-1 rounded-full text-xs font-medium ${order.status === 'Completed' ? 'bg-emerald-100 text-emerald-700' :
-                                                    order.status === 'In Progress' ? 'bg-amber-100 text-amber-700' :
-                                                        order.status === 'Delivered' ? 'bg-blue-100 text-blue-700' :
-                                                            order.status === 'Cancelled' ? 'bg-red-100 text-red-700' :
-                                                                'bg-amber-100 text-amber-700'
+                                                <span className={`px-3 py-1 rounded-full text-xs font-medium ${order.status === 'Order Completed' ? 'bg-emerald-100 text-emerald-700' :
+                                                    order.status === 'Cutting Completed' ? 'bg-blue-100 text-blue-700' :
+                                                        order.status === 'Order Created' ? 'bg-amber-100 text-amber-700' :
+                                                            order.status === 'Completed' ? 'bg-emerald-100 text-emerald-700' :
+                                                                order.status === 'In Progress' ? 'bg-amber-100 text-amber-700' :
+                                                                    order.status === 'Delivered' ? 'bg-blue-100 text-blue-700' :
+                                                                        order.status === 'Cancelled' ? 'bg-red-100 text-red-700' :
+                                                                            'bg-slate-100 text-slate-700'
                                                     }`}>
                                                     {order.status}
                                                 </span>
                                             </td>
+                                            <td className="px-6 py-4 text-sm text-slate-600">
+                                                {order.dueDate ? formatDate(order.dueDate) : '-'}
+                                            </td>
                                             <td className="px-6 py-4 text-sm font-semibold text-slate-900">
                                                 {formatPrice(order.price)}
                                             </td>
-                                            <td className="px-6 py-4 text-sm text-slate-500">
-                                                {formatDate(order.createdAt)}
+                                            <td className="px-6 py-4">
+                                                {order.status === 'Order Created' && (
+                                                    <button
+                                                        onClick={() => handleStatusUpdate(order._id, 'Cutting Completed')}
+                                                        disabled={updatingOrder === order._id}
+                                                        className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                                    >
+                                                        {updatingOrder === order._id ? 'Updating...' : 'Mark Cutting Complete'}
+                                                    </button>
+                                                )}
+                                                {order.status === 'Cutting Completed' && (
+                                                    <button
+                                                        onClick={() => handleStatusUpdate(order._id, 'Order Completed')}
+                                                        disabled={updatingOrder === order._id}
+                                                        className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                                    >
+                                                        {updatingOrder === order._id ? 'Updating...' : 'Mark Order Complete'}
+                                                    </button>
+                                                )}
+                                                {order.status === 'Order Completed' && (
+                                                    <span className="text-xs text-emerald-600 font-medium">✓ Completed</span>
+                                                )}
                                             </td>
                                         </tr>
                                     ))}

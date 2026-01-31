@@ -7,6 +7,9 @@ import TailorOrders from './Pages/Tailor/TailorOrders'
 import TailorCustomers from './Pages/Tailor/TailorCustomers'
 import TailorPortfolio from './Pages/Tailor/TailorPortfolio'
 import TailorSettings from './Pages/Tailor/TailorSettings'
+import NewOrder from './Pages/Tailor/NewOrder'
+import OrderDetailsPage from './Pages/Tailor/OrderDetailsPage'
+import MeasurementPresets from './Pages/Tailor/MeasurementPresets'
 import Login from './Pages/Login'
 import UserRegistration from './Pages/UserRegistration'
 import Profile from './Pages/Customer/Profile'
@@ -77,6 +80,21 @@ const App = () => {
               <TailorDashboard />
             </ProtectedTailorRoute>
           } />
+          <Route path="/new-order" element={
+            <ProtectedTailorRoute>
+              <NewOrder />
+            </ProtectedTailorRoute>
+          } />
+          <Route path="/orders" element={
+            <ProtectedTailorRoute>
+              <TailorOrders />
+            </ProtectedTailorRoute>
+          } />
+          <Route path="/orders/:orderId" element={
+            <ProtectedTailorRoute>
+              <OrderDetailsPage />
+            </ProtectedTailorRoute>
+          } />
           <Route path="/dashboard/orders" element={
             <ProtectedTailorRoute>
               <TailorOrders />
@@ -90,6 +108,11 @@ const App = () => {
           <Route path="/dashboard/portfolio" element={
             <ProtectedTailorRoute>
               <TailorPortfolio />
+            </ProtectedTailorRoute>
+          } />
+          <Route path="/dashboard/presets" element={
+            <ProtectedTailorRoute>
+              <MeasurementPresets />
             </ProtectedTailorRoute>
           } />
           <Route path="/dashboard/settings" element={

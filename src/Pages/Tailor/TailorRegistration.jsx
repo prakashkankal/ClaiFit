@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 
 const TailorRegistration = () => {
     const navigate = useNavigate();
-    const [currentStep, setCurrentStep] = useState(1); // Step 1: Shop Details, Step 2: Address
+    const [currentStep, setCurrentStep] = useState(1); // Step 1: Personal Info, Step 2: Shop Details, Step 3: Address
     const [isExistingUser, setIsExistingUser] = useState(false);
     const [formData, setFormData] = useState({
         name: '',
@@ -24,30 +24,34 @@ const TailorRegistration = () => {
     });
     const [error, setError] = useState('');
 
-    // Check if user is already logged in
+    // Check if user is already logged in and pre-fill data
     useEffect(() => {
         const userInfo = localStorage.getItem('userInfo');
         if (userInfo) {
             try {
                 const user = JSON.parse(userInfo);
 
-                // Only pre-fill if it's a regular user (not already a tailor)
-                if (user.userType !== 'tailor' && user.email) {
+                // If already a tailor, redirect to dashboard
+                if (user.userType === 'tailor') {
+                    navigate('/dashboard');
+                    return;
+                }
+
+                // If it's a regular user, pre-fill their information
+                if (user.email) {
                     setIsExistingUser(true);
                     setFormData(prev => ({
                         ...prev,
                         name: user.name || '',
                         email: user.email || '',
-                        phone: user.phone || '',
-                        // Note: We can't retrieve the plain password since it's hashed
-                        // User will use same password, we'll note this in the form
+                        phone: user.phone || ''
                     }));
                 }
             } catch (err) {
                 console.error('Error parsing user info:', err);
             }
         }
-    }, []);
+    }, [navigate]);
 
 
     const handleChange = (e) => {
@@ -66,47 +70,49 @@ const TailorRegistration = () => {
     };
 
     const handleNext = () => {
-        // Validate Step 1 fields
-        if (!formData.shopName || !formData.specialization || !formData.experience) {
-            setError('Please fill in all required shop details');
-            return;
-        }
         setError('');
-        setCurrentStep(2);
+
+        // Validate Step 1: Personal Information
+        if (currentStep === 1) {
+            if (!formData.name || !formData.email || !formData.phone || !formData.password || !formData.confirmPassword) {
+                setError('Please fill in all personal information fields');
+                return;
+            }
+            if (formData.password !== formData.confirmPassword) {
+                setError('Passwords do not match!');
+                return;
+            }
+            if (formData.password.length < 6) {
+                setError('Password must be at least 6 characters long');
+                return;
+            }
+            setCurrentStep(2);
+        }
+        // Validate Step 2: Shop Details
+        else if (currentStep === 2) {
+            if (!formData.shopName || !formData.specialization || !formData.experience) {
+                setError('Please fill in all required shop details');
+                return;
+            }
+            setCurrentStep(3);
+        }
     };
 
     const handleBack = () => {
-        setCurrentStep(1);
-        setError('');
+        if (currentStep > 1) {
+            setCurrentStep(currentStep - 1);
+            setError('');
+        }
     };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
 
-        // Validate address fields from Step 2
+        // Validate address fields from Step 3
         if (!formData.street || !formData.city || !formData.state || !formData.pincode) {
             setError('Please fill in all address fields');
             return;
-        }
-
-        // For existing users, they must enter password
-        if (isExistingUser && (!formData.password || formData.password.trim() === '')) {
-            setError('Please enter your current password to verify your identity');
-            return;
-        }
-
-        // For new users, validate passwords match
-        if (!isExistingUser) {
-            if (formData.password !== formData.confirmPassword) {
-                setError('Passwords do not match!');
-                return;
-            }
-
-            if (formData.password.length < 6) {
-                setError('Password must be at least 6 characters long');
-                return;
-            }
         }
 
         // Construct payload to match backend schema
@@ -200,17 +206,24 @@ const TailorRegistration = () => {
 
                         {/* Step Indicator */}
                         <div className='flex items-center justify-center mb-4'>
-                            <div className='flex items-center gap-4'>
+                            <div className='flex items-center gap-2'>
                                 <div className={`flex items-center gap-2 ${currentStep === 1 ? 'text-[#6b4423]' : 'text-gray-400'}`}>
-                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center font-semibold ${currentStep === 1 ? 'bg-[#6b4423] text-white' : 'bg-gray-200'}`}>
-                                        1
+                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center font-semibold ${currentStep === 1 ? 'bg-[#6b4423] text-white' : currentStep > 1 ? 'bg-emerald-500 text-white' : 'bg-gray-200'}`}>
+                                        {currentStep > 1 ? '✓' : '1'}
                                     </div>
-                                    <span className='text-sm font-medium hidden sm:inline'>Shop Details</span>
+                                    <span className='text-sm font-medium hidden sm:inline'>Personal</span>
                                 </div>
-                                <div className='w-12 h-0.5 bg-gray-300'></div>
+                                <div className='w-8 h-0.5 bg-gray-300'></div>
                                 <div className={`flex items-center gap-2 ${currentStep === 2 ? 'text-[#6b4423]' : 'text-gray-400'}`}>
-                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center font-semibold ${currentStep === 2 ? 'bg-[#6b4423] text-white' : 'bg-gray-200'}`}>
-                                        2
+                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center font-semibold ${currentStep === 2 ? 'bg-[#6b4423] text-white' : currentStep > 2 ? 'bg-emerald-500 text-white' : 'bg-gray-200'}`}>
+                                        {currentStep > 2 ? '✓' : '2'}
+                                    </div>
+                                    <span className='text-sm font-medium  hidden sm:inline'>Shop</span>
+                                </div>
+                                <div className='w-8 h-0.5 bg-gray-300'></div>
+                                <div className={`flex items-center gap-2 ${currentStep === 3 ? 'text-[#6b4423]' : 'text-gray-400'}`}>
+                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center font-semibold ${currentStep === 3 ? 'bg-[#6b4423] text-white' : 'bg-gray-200'}`}>
+                                        3
                                     </div>
                                     <span className='text-sm font-medium hidden sm:inline'>Address</span>
                                 </div>
@@ -220,12 +233,14 @@ const TailorRegistration = () => {
                         {/* Heading */}
                         <div className='text-center mb-5'>
                             <h2 className='text-2xl font-serif font-bold text-gray-900 mb-2'>
-                                {currentStep === 1 ? 'Shop Details' : 'Shop Address'}
+                                {currentStep === 1 ? 'Personal Information' : currentStep === 2 ? 'Shop Details' : 'Shop Address'}
                             </h2>
                             <p className='text-gray-600 text-sm'>
                                 {currentStep === 1
-                                    ? 'Tell us about your tailoring business'
-                                    : 'Where can customers find your shop?'}
+                                    ? 'Create your account to get started'
+                                    : currentStep === 2
+                                        ? 'Tell us about your tailoring business'
+                                        : 'Where can customers find your shop?'}
                             </p>
                         </div>
 
@@ -238,8 +253,103 @@ const TailorRegistration = () => {
 
                         {/* Form */}
                         <form onSubmit={handleSubmit} className='space-y-4'>
-                            {/* STEP 1: Shop Details */}
+                            {/* STEP 1: Personal Information */}
                             {currentStep === 1 && (
+                                <>
+                                    {isExistingUser && (
+                                        <div className='mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg text-blue-700 text-sm'>
+                                            ℹ️ We've pre-filled your information from your account. You can edit it if needed.
+                                        </div>
+                                    )}
+
+                                    <div>
+                                        <label className='block text-sm font-medium text-gray-700 mb-1.5'>Full Name *</label>
+                                        <input
+                                            required
+                                            name="name"
+                                            value={formData.name}
+                                            onChange={handleChange}
+                                            type="text"
+                                            placeholder="John Doe"
+                                            className='w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent text-gray-900 placeholder:text-gray-400'
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className='block text-sm font-medium text-gray-700 mb-1.5'>Email Address *</label>
+                                        <input
+                                            required
+                                            name="email"
+                                            value={formData.email}
+                                            onChange={handleChange}
+                                            type="email"
+                                            placeholder="john@example.com"
+                                            readOnly={isExistingUser}
+                                            className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent text-gray-900 placeholder:text-gray-400 ${isExistingUser ? 'bg-gray-100 cursor-not-allowed' : 'bg-gray-50'}`}
+                                        />
+                                        {isExistingUser && (
+                                            <p className='text-xs text-gray-500 mt-1'>Email cannot be changed as it's linked to your account</p>
+                                        )}
+                                    </div>
+
+                                    <div>
+                                        <label className='block text-sm font-medium text-gray-700 mb-1.5'>Phone Number *</label>
+                                        <input
+                                            required
+                                            name="phone"
+                                            value={formData.phone}
+                                            onChange={handleChange}
+                                            type="tel"
+                                            placeholder="9876543210"
+                                            maxLength="10"
+                                            className='w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent text-gray-900 placeholder:text-gray-400'
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className='block text-sm font-medium text-gray-700 mb-1.5'>
+                                            Password * {isExistingUser && <span className='text-xs font-normal text-gray-500'>(Set password for tailor account)</span>}
+                                        </label>
+                                        <input
+                                            required
+                                            name="password"
+                                            value={formData.password}
+                                            onChange={handleChange}
+                                            type="password"
+                                            placeholder="••••••••"
+                                            className='w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent text-gray-900 placeholder:text-gray-400'
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className='block text-sm font-medium text-gray-700 mb-1.5'>Confirm Password *</label>
+                                        <input
+                                            required
+                                            name="confirmPassword"
+                                            value={formData.confirmPassword}
+                                            onChange={handleChange}
+                                            type="password"
+                                            placeholder="••••••••"
+                                            className='w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent text-gray-900 placeholder:text-gray-400'
+                                        />
+                                    </div>
+
+                                    {/* Next Button */}
+                                    <button
+                                        type="button"
+                                        onClick={handleNext}
+                                        className='w-full py-2.5 bg-[#6b4423] hover:bg-[#573619] text-white font-semibold rounded-lg transition-colors shadow-sm flex items-center justify-center gap-2 mt-4'
+                                    >
+                                        Next: Shop Details
+                                        <svg className='w-4 h-4' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                                            <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M13 7l5 5m0 0l-5 5m5-5H6' />
+                                        </svg>
+                                    </button>
+                                </>
+                            )}
+
+                            {/* STEP 2: Shop Details */}
+                            {currentStep === 2 && (
                                 <>
                                     <div>
                                         <label className='block text-sm font-medium text-gray-700 mb-1.5'>Shop Name *</label>
@@ -336,7 +446,7 @@ const TailorRegistration = () => {
                                         onClick={handleNext}
                                         className='w-full py-2.5 bg-[#6b4423] hover:bg-[#573619] text-white font-semibold rounded-lg transition-colors shadow-sm flex items-center justify-center gap-2 mt-4'
                                     >
-                                        Next: Address Details
+                                        Next: Address
                                         <svg className='w-4 h-4' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
                                             <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M13 7l5 5m0 0l-5 5m5-5H6' />
                                         </svg>
@@ -344,8 +454,8 @@ const TailorRegistration = () => {
                                 </>
                             )}
 
-                            {/* STEP 2: Address */}
-                            {currentStep === 2 && (
+                            {/* STEP 3: Address */}
+                            {currentStep === 3 && (
                                 <>
                                     <div>
                                         <label className='block text-sm font-medium text-gray-700 mb-1.5'>Street Address *</label>

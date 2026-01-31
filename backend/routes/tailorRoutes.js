@@ -58,11 +58,32 @@ router.post('/register', async (req, res) => {
         console.log('Password starts with $2b$:', tailor.password?.startsWith('$2b$'));
 
         if (tailor) {
+            // Create default measurement presets for the new tailor
+            try {
+                const MeasurementPreset = (await import('../models/MeasurementPreset.js')).default;
+                const defaultPresets = MeasurementPreset.getDefaultPresets();
+                const presetsToCreate = defaultPresets.map(preset => ({
+                    ...preset,
+                    tailorId: tailor._id
+                }));
+                await MeasurementPreset.insertMany(presetsToCreate);
+                console.log('Default measurement presets created for tailor:', tailor._id);
+            } catch (presetError) {
+                console.error('Error creating default presets:', presetError);
+                // Don't fail registration if preset creation fails
+            }
+
             res.status(201).json({
                 _id: tailor._id,
                 name: tailor.name,
                 email: tailor.email,
+                phone: tailor.phone,
                 shopName: tailor.shopName,
+                shopImage: tailor.shopImage,
+                specialization: tailor.specialization,
+                experience: tailor.experience,
+                address: tailor.address,
+                businessHours: tailor.businessHours,
                 userType: 'tailor',
                 token: generateToken(tailor._id)
             });
@@ -114,7 +135,13 @@ router.post('/login', async (req, res) => {
                 _id: tailor._id,
                 name: tailor.name,
                 email: tailor.email,
+                phone: tailor.phone,
                 shopName: tailor.shopName,
+                shopImage: tailor.shopImage,
+                specialization: tailor.specialization,
+                experience: tailor.experience,
+                address: tailor.address,
+                businessHours: tailor.businessHours,
                 userType: 'tailor',
                 token: generateToken(tailor._id)
             });

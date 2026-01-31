@@ -1,10 +1,32 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import ProfileModal from '../Customer/ProfileModal'
+import axios from 'axios'
 
 const DashboardSidebar = ({ tailorData, onLogout, onUpdateTailorData }) => {
     const location = useLocation();
     const [showProfileModal, setShowProfileModal] = useState(false);
+    const [pendingOrdersCount, setPendingOrdersCount] = useState(0);
+
+    useEffect(() => {
+        const fetchPendingCount = async () => {
+            if (!tailorData?._id) return;
+
+            try {
+                const { data } = await axios.get(`http://localhost:5000/api/orders/${tailorData._id}`);
+                const orders = data.orders || [];
+                const pending = orders.filter(order => order.status !== 'Order Completed').length;
+                setPendingOrdersCount(pending);
+            } catch (err) {
+                console.error('Error fetching pending orders count:', err);
+            }
+        };
+
+        fetchPendingCount();
+        // Refresh count every 30 seconds
+        const interval = setInterval(fetchPendingCount, 30000);
+        return () => clearInterval(interval);
+    }, [tailorData]);
 
     const getInitials = (name) => {
         if (!name) return 'T';
@@ -17,9 +39,10 @@ const DashboardSidebar = ({ tailorData, onLogout, onUpdateTailorData }) => {
 
     const navItems = [
         { path: '/dashboard', icon: '📊', label: 'Dashboard' },
-        { path: '/dashboard/orders', icon: '🧵', label: 'Orders' },
+        { path: '/dashboard/orders', icon: '🧵', label: 'All Orders', badge: pendingOrdersCount },
         { path: '/dashboard/customers', icon: '👥', label: 'Customers' },
         { path: '/dashboard/portfolio', icon: '🖼️', label: 'Portfolio' },
+        { path: '/dashboard/presets', icon: '📏', label: 'Measurement Presets' },
         { path: '/dashboard/settings', icon: '⚙️', label: 'Settings' }
     ];
 
@@ -41,7 +64,16 @@ const DashboardSidebar = ({ tailorData, onLogout, onUpdateTailorData }) => {
                                 : 'text-slate-600 hover:bg-amber-50 hover:text-[#6b4423]'
                                 }`}
                         >
-                            <span>{item.icon}</span> {item.label}
+                            <span>{item.icon}</span>
+                            <span className="flex-1">{item.label}</span>
+                            {item.badge > 0 && (
+                                <span className={`px-2 py-0.5 text-xs font-bold rounded-full ${location.pathname === item.path
+                                    ? 'bg-white text-[#6b4423]'
+                                    : 'bg-red-500 text-white'
+                                    }`}>
+                                    {item.badge}
+                                </span>
+                            )}
                         </Link>
                     ))}
                 </nav>
