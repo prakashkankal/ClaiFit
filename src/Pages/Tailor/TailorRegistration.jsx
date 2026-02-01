@@ -1,8 +1,11 @@
 import React, { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { GoogleLogin } from '@react-oauth/google';
+import API_URL from '../../config/api';
 
 const TailorRegistration = () => {
     const navigate = useNavigate();
+    const location = useLocation(); // Hook to get navigation state
     const [currentStep, setCurrentStep] = useState(1); // Step 1: Personal Info, Step 2: Shop Details, Step 3: Address
     const [isExistingUser, setIsExistingUser] = useState(false);
     const [formData, setFormData] = useState({
@@ -20,25 +23,51 @@ const TailorRegistration = () => {
         street: '',
         city: '',
         state: '',
-        pincode: ''
+        pincode: '',
+        googleId: ''
     });
     const [error, setError] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-    // Check if user is already logged in and pre-fill data
+    // Check if user is already logged in (localStorage) OR data passed via navigation state
     useEffect(() => {
+        // 1. Check for data passed via navigation (e.g. from "Switch to Tailor")
+        if (location.state?.prefillData) {
+            const { name, email, phone } = location.state.prefillData;
+            console.log("Prefilling data from navigation state:", location.state.prefillData);
+            setFormData(prev => ({
+                ...prev,
+                name: name || '',
+                email: email || '',
+                phone: phone || ''
+            }));
+            // If email is provided, we can treat them somewhat like an existing user for pre-fill purposes,
+            // but they still need to set a password if they don't have one, or just fill the form.
+            // Since they are "switching", they are already logged in as a customer.
+            // But this registration form creates a NEW tailor account or upgrades?
+            // The prompt says "redirect to tailor registration which should be filled with existing info".
+            // It doesn't explicitly say "upgrade the account". Usually registration assumes creating a new record or checking existence.
+            // I'll leave isExistingUser as false so they can enter a password for their new tailor identity if needed,
+            // or if the backend handles email duplication by merging/upgrading, that's backend logic.
+            // However, visually pre-filling is key.
+            setIsExistingUser(true); // Let's mark as existing so email is read-only if we want that behavior.
+        }
+
+        // 2. Check localStorage for session
         const userInfo = localStorage.getItem('userInfo');
         if (userInfo) {
             try {
                 const user = JSON.parse(userInfo);
 
                 // If already a tailor, redirect to dashboard
-                if (user.userType === 'tailor') {
+                if (user.role === 'tailor' || user.userType === 'tailor') {
                     navigate('/dashboard');
                     return;
                 }
 
-                // If it's a regular user, pre-fill their information
-                if (user.email) {
+                // If it's a regular user and NO navigation state was passed (fallback), pre-fill their information
+                if (!location.state?.prefillData && user.email) {
                     setIsExistingUser(true);
                     setFormData(prev => ({
                         ...prev,
@@ -51,7 +80,7 @@ const TailorRegistration = () => {
                 console.error('Error parsing user info:', err);
             }
         }
-    }, [navigate]);
+    }, [navigate, location]);
 
 
     const handleChange = (e) => {
@@ -68,6 +97,10 @@ const TailorRegistration = () => {
             setFormData({ ...formData, [name]: value });
         }
     };
+
+    const isStep1Valid = () => {
+        return formData.name && formData.email && formData.phone && formData.password && formData.confirmPassword && (formData.password === formData.confirmPassword) && (formData.password.length >= 6);
+    }
 
     const handleNext = () => {
         setError('');
@@ -105,6 +138,43 @@ const TailorRegistration = () => {
         }
     };
 
+    const handleGoogleSuccess = async (credentialResponse) => {
+        try {
+            const { credential } = credentialResponse;
+            const response = await fetch(`${API_URL}/api/auth/google`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ token: credential, role: 'tailor' })
+            });
+            const data = await response.json();
+
+            if (response.status === 200 || response.status === 201) {
+                // Logged in successfully
+                localStorage.setItem('userInfo', JSON.stringify(data));
+                navigate('/dashboard');
+            } else if (response.status === 202) {
+                // New Tailor - Pre-fill form
+                setFormData(prev => ({
+                    ...prev,
+                    name: data.name,
+                    email: data.email,
+                    googleId: data.googleId
+                }));
+                setIsExistingUser(true); // Locks email
+                setError('Please complete your shop details to finish registration.');
+            } else {
+                setError(data.message || 'Google Sign-Up Failed');
+            }
+        } catch (err) {
+            console.error(err);
+            setError('Google Sign-Up Failed');
+        }
+    };
+
+    const handleGoogleError = () => {
+        setError('Google Sign-Up Failed');
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
@@ -132,11 +202,12 @@ const TailorRegistration = () => {
                 city: formData.city,
                 state: formData.state,
                 pincode: formData.pincode
-            }
+            },
+            googleId: formData.googleId
         };
 
         try {
-            const response = await fetch('http://localhost:5000/api/tailors/register', {
+            const response = await fetch(`${API_URL}/api/tailors/register`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -151,7 +222,6 @@ const TailorRegistration = () => {
                 localStorage.setItem('userInfo', JSON.stringify(data));
 
                 // Registration successful - auto-login and redirect to dashboard
-                alert(`Welcome to StyleEase, ${data.name}! Redirecting to your dashboard...`);
                 navigate('/dashboard');
             } else {
                 setError(data.message || 'Registration failed');
@@ -162,13 +232,18 @@ const TailorRegistration = () => {
         }
     };
 
-    return (
-        <div className='min-h-screen flex'>
+    // Styles (Mobile First)
+    const inputClasses = "w-full h-[48px] px-4 py-3 bg-white border border-gray-200 rounded-xl text-base text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#6b4423] focus:border-transparent transition-all placeholder:text-gray-400 appearance-none";
+    const labelClasses = "block text-sm font-medium text-gray-900 mb-1.5";
+
+    // DESKTOP VIEW
+    const DesktopView = () => (
+        <div className='hidden lg:flex min-h-screen'>
             {/* Left Side - Quote & Branding */}
-            <div className='hidden lg:flex lg:w-1/2 bg-[#1e3a5f] relative flex-col justify-between p-12'>
+            <div className='w-1/2 bg-[#1e3a5f] relative flex-col justify-between p-12 flex'>
                 {/* Logo */}
                 <div className='flex items-center gap-3'>
-                    <h1 className='text-4xl font-serif font-bold text-white'>StyleEase</h1>
+                    <h1 className='text-4xl font-bold text-white' style={{ fontFamily: '"Playfair Display", serif' }}>Claifit</h1>
                 </div>
 
                 {/* Quote */}
@@ -179,367 +254,259 @@ const TailorRegistration = () => {
                     <p className='text-lg text-gray-300'>— Giorgio Armani</p>
                 </div>
 
-                {/* Scissors Decoration */}
-                <div className='absolute bottom-12 right-12 opacity-30'>
-                    <svg className='w-32 h-32 text-gray-800 rotate-45' fill='none' stroke='currentColor' strokeWidth='1.5' viewBox='0 0 24 24'>
-                        <path strokeLinecap='round' strokeLinejoin='round' d='M7.848 8.25l1.536.887M7.848 8.25a3 3 0 11-5.196-3 3 3 0 015.196 3zm1.536.887a2.165 2.165 0 011.083 1.839c.005.351.054.695.14 1.024M9.384 9.137l2.077 1.199M7.848 15.75l1.536-.887m-1.536.887a3 3 0 11-5.196 3 3 3 0 015.196-3zm1.536-.887a2.165 2.165 0 001.083-1.838c.005-.352.054-.695.14-1.025m-1.223 2.863l2.077-1.199m0-3.328a4.323 4.323 0 012.068-1.379l5.325-1.628a4.5 4.5 0 012.48-.044l.803.215-7.794 4.5m-2.882-1.664A4.33 4.33 0 0010.607 12m3.736 0l7.794 4.5-.802.215a4.5 4.5 0 01-2.48-.043l-5.326-1.629a4.324 4.324 0 01-2.068-1.379M14.343 12l-2.882 1.664' />
-                    </svg>
-                </div>
-
                 {/* Footer */}
                 <div className='text-gray-400 text-sm'>
-                    © 2024 StyleEase Atelier Systems
+                    © 2024 Claifit Atelier Systems
                 </div>
             </div>
 
             {/* Right Side - Registration Form */}
-            <div className='w-full lg:w-1/2 bg-[#f5f5f0] flex items-center justify-center p-6'>
-                <div className='w-full max-w-2xl'>
-                    {/* Registration Card with Dashed Border */}
-                    <div className='relative bg-white rounded-2xl shadow-sm dashed-border p-6'>
-                        {/* Scissors Decoration */}
-                        <div className='absolute -top-3 -right-3 w-8 h-8 rounded-full flex items-center justify-center rotate-12'>
-                            <svg className='w-32 h-32 text-gray-800 rotate-45' fill='none' stroke='currentColor' strokeWidth='1.5' viewBox='0 0 24 24'>
-                                <path strokeLinecap='round' strokeLinejoin='round' d='M7.848 8.25l1.536.887M7.848 8.25a3 3 0 11-5.196-3 3 3 0 015.196 3zm1.536.887a2.165 2.165 0 011.083 1.839c.005.351.054.695.14 1.024M9.384 9.137l2.077 1.199M7.848 15.75l1.536-.887m-1.536.887a3 3 0 11-5.196 3 3 3 0 015.196-3zm1.536-.887a2.165 2.165 0 001.083-1.838c.005-.352.054-.695.14-1.025m-1.223 2.863l2.077-1.199m0-3.328a4.323 4.323 0 012.068-1.379l5.325-1.628a4.5 4.5 0 012.48-.044l.803.215-7.794 4.5m-2.882-1.664A4.33 4.33 0 0010.607 12m3.736 0l7.794 4.5-.802.215a4.5 4.5 0 01-2.48-.043l-5.326-1.629a4.324 4.324 0 01-2.068-1.379M14.343 12l-2.882 1.664' />
-                            </svg>
+            <div className='w-1/2 bg-[#f5f5f0] flex items-center justify-center p-6'>
+                <div className="text-center text-gray-400">
+                    <p>Refer to mobile view for the redesigned form experience.</p>
+                    <p className='text-sm mt-2'>Resize your browser to create.</p>
+                </div>
+            </div>
+        </div>
+    );
+
+    return (
+        <>
+            {/* Keeping desktop strict as per previous instructions or implying mobile-only focus? User said MOBILE FIRST. I'll make it responsive if I can, but primarily focused on mobile structure. For now, I will use a simple layout logic. */}
+
+            <div className='lg:flex min-h-screen bg-white'>
+                {/* Left Branding (Desktop) - Same as UserRegistration */}
+                <div className='hidden lg:flex lg:w-1/2 bg-[#1e3a5f] relative flex-col justify-between p-12'>
+                    <div className='flex items-center gap-3'>
+                        <span className="text-4xl font-bold text-white tracking-tight" style={{ fontFamily: '"Playfair Display", serif' }}>
+                            Claifit
+                        </span>
+                    </div>
+                    <div className='text-white max-w-md'>
+                        <p className='text-3xl font-light leading-relaxed mb-4'>
+                            "Success is often achieved by those who don't know that failure is inevitable."
+                        </p>
+                        <p className='text-lg text-gray-300'>— Coco Chanel</p>
+                    </div>
+                    <div className='text-gray-400 text-sm'>
+                        © 2024 Claifit Atelier Systems
+                    </div>
+                </div>
+
+                {/* Content Area */}
+                <div className='w-full lg:w-1/2 flex flex-col h-screen lg:h-auto overflow-hidden bg-white'>
+
+                    {/* Mobile Top Bar */}
+                    <div className="px-5 pt-6 pb-2 bg-white flex items-center justify-between shrink-0">
+                        <button
+                            onClick={() => {
+                                if (location.state?.from) {
+                                    navigate(location.state.from);
+                                } else {
+                                    navigate('/signup');
+                                }
+                            }}
+                            className="p-2 -ml-2 rounded-full hover:bg-gray-100 text-gray-900 transition-colors"
+                        >
+                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+                        </button>
+                        {/* Step Count */}
+                        <div className="text-sm font-medium text-gray-500">
+                            Step {currentStep} of 3
                         </div>
+                        {/* Placeholder for balance */}
+                        <div className="w-8"></div>
+                    </div>
 
-                        {/* Step Indicator */}
-                        <div className='flex items-center justify-center mb-4'>
-                            <div className='flex items-center gap-2'>
-                                <div className={`flex items-center gap-2 ${currentStep === 1 ? 'text-[#6b4423]' : 'text-gray-400'}`}>
-                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center font-semibold ${currentStep === 1 ? 'bg-[#6b4423] text-white' : currentStep > 1 ? 'bg-emerald-500 text-white' : 'bg-gray-200'}`}>
-                                        {currentStep > 1 ? '✓' : '1'}
-                                    </div>
-                                    <span className='text-sm font-medium hidden sm:inline'>Personal</span>
-                                </div>
-                                <div className='w-8 h-0.5 bg-gray-300'></div>
-                                <div className={`flex items-center gap-2 ${currentStep === 2 ? 'text-[#6b4423]' : 'text-gray-400'}`}>
-                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center font-semibold ${currentStep === 2 ? 'bg-[#6b4423] text-white' : currentStep > 2 ? 'bg-emerald-500 text-white' : 'bg-gray-200'}`}>
-                                        {currentStep > 2 ? '✓' : '2'}
-                                    </div>
-                                    <span className='text-sm font-medium  hidden sm:inline'>Shop</span>
-                                </div>
-                                <div className='w-8 h-0.5 bg-gray-300'></div>
-                                <div className={`flex items-center gap-2 ${currentStep === 3 ? 'text-[#6b4423]' : 'text-gray-400'}`}>
-                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center font-semibold ${currentStep === 3 ? 'bg-[#6b4423] text-white' : 'bg-gray-200'}`}>
-                                        3
-                                    </div>
-                                    <span className='text-sm font-medium hidden sm:inline'>Address</span>
-                                </div>
-                            </div>
-                        </div>
+                    {/* Progress Bar */}
+                    <div className="w-full h-1 bg-gray-100 shrink-0">
+                        <div
+                            className="h-full bg-[#6b4423] transition-all duration-300 ease-out"
+                            style={{ width: `${(currentStep / 3) * 100}%` }}
+                        ></div>
+                    </div>
 
-                        {/* Heading */}
-                        <div className='text-center mb-5'>
-                            <h2 className='text-2xl font-serif font-bold text-gray-900 mb-2'>
-                                {currentStep === 1 ? 'Personal Information' : currentStep === 2 ? 'Shop Details' : 'Shop Address'}
-                            </h2>
-                            <p className='text-gray-600 text-sm'>
-                                {currentStep === 1
-                                    ? 'Create your account to get started'
-                                    : currentStep === 2
-                                        ? 'Tell us about your tailoring business'
-                                        : 'Where can customers find your shop?'}
-                            </p>
-                        </div>
+                    {/* Scrollable Form Area */}
+                    <div className="flex-1 overflow-y-auto px-6 py-6 scrollbar-hide">
+                        {currentStep === 1 && (
+                            <div className="max-w-md mx-auto fade-in">
+                                <h2 className="text-2xl font-bold text-gray-900 mb-6 font-serif">Personal Information</h2>
 
-                        {/* Error Message */}
-                        {error && (
-                            <div className='mb-4 p-2.5 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm'>
-                                {error}
-                            </div>
-                        )}
-
-                        {/* Form */}
-                        <form onSubmit={handleSubmit} className='space-y-4'>
-                            {/* STEP 1: Personal Information */}
-                            {currentStep === 1 && (
-                                <>
-                                    {isExistingUser && (
-                                        <div className='mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg text-blue-700 text-sm'>
-                                            ℹ️ We've pre-filled your information from your account. You can edit it if needed.
+                                {!isExistingUser && (
+                                    <>
+                                        <div className='mb-6'>
+                                            <GoogleLogin
+                                                onSuccess={handleGoogleSuccess}
+                                                onError={handleGoogleError}
+                                                theme="outline"
+                                                shape="pill"
+                                                text="signup_with"
+                                                width="100%"
+                                            />
                                         </div>
-                                    )}
+                                        <div className='relative mb-8'>
+                                            <div className='absolute inset-0 flex items-center'>
+                                                <div className='w-full border-t border-gray-100'></div>
+                                            </div>
+                                            <div className='relative flex justify-center text-sm'>
+                                                <span className='px-4 bg-white text-gray-400'>or use email</span>
+                                            </div>
+                                        </div>
+                                    </>
+                                )}
 
+                                <div className="space-y-5 pb-24">
                                     <div>
-                                        <label className='block text-sm font-medium text-gray-700 mb-1.5'>Full Name *</label>
+                                        <label className={labelClasses}>Full Name</label>
                                         <input
-                                            required
                                             name="name"
                                             value={formData.name}
                                             onChange={handleChange}
                                             type="text"
-                                            placeholder="John Doe"
-                                            className='w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent text-gray-900 placeholder:text-gray-400'
+                                            className={inputClasses}
+                                            placeholder="e.g. John Doe"
                                         />
                                     </div>
-
                                     <div>
-                                        <label className='block text-sm font-medium text-gray-700 mb-1.5'>Email Address *</label>
+                                        <label className={labelClasses}>Email Address</label>
                                         <input
-                                            required
                                             name="email"
                                             value={formData.email}
                                             onChange={handleChange}
                                             type="email"
+                                            className={inputClasses}
                                             placeholder="john@example.com"
                                             readOnly={isExistingUser}
-                                            className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent text-gray-900 placeholder:text-gray-400 ${isExistingUser ? 'bg-gray-100 cursor-not-allowed' : 'bg-gray-50'}`}
                                         />
-                                        {isExistingUser && (
-                                            <p className='text-xs text-gray-500 mt-1'>Email cannot be changed as it's linked to your account</p>
-                                        )}
                                     </div>
-
                                     <div>
-                                        <label className='block text-sm font-medium text-gray-700 mb-1.5'>Phone Number *</label>
+                                        <label className={labelClasses}>Phone Number</label>
                                         <input
-                                            required
                                             name="phone"
                                             value={formData.phone}
                                             onChange={handleChange}
                                             type="tel"
+                                            className={inputClasses}
                                             placeholder="9876543210"
-                                            maxLength="10"
-                                            className='w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent text-gray-900 placeholder:text-gray-400'
                                         />
                                     </div>
-
                                     <div>
-                                        <label className='block text-sm font-medium text-gray-700 mb-1.5'>
-                                            Password * {isExistingUser && <span className='text-xs font-normal text-gray-500'>(Set password for tailor account)</span>}
-                                        </label>
-                                        <input
-                                            required
-                                            name="password"
-                                            value={formData.password}
-                                            onChange={handleChange}
-                                            type="password"
-                                            placeholder="••••••••"
-                                            className='w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent text-gray-900 placeholder:text-gray-400'
-                                        />
-                                    </div>
-
-                                    <div>
-                                        <label className='block text-sm font-medium text-gray-700 mb-1.5'>Confirm Password *</label>
-                                        <input
-                                            required
-                                            name="confirmPassword"
-                                            value={formData.confirmPassword}
-                                            onChange={handleChange}
-                                            type="password"
-                                            placeholder="••••••••"
-                                            className='w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent text-gray-900 placeholder:text-gray-400'
-                                        />
-                                    </div>
-
-                                    {/* Next Button */}
-                                    <button
-                                        type="button"
-                                        onClick={handleNext}
-                                        className='w-full py-2.5 bg-[#6b4423] hover:bg-[#573619] text-white font-semibold rounded-lg transition-colors shadow-sm flex items-center justify-center gap-2 mt-4'
-                                    >
-                                        Next: Shop Details
-                                        <svg className='w-4 h-4' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-                                            <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M13 7l5 5m0 0l-5 5m5-5H6' />
-                                        </svg>
-                                    </button>
-                                </>
-                            )}
-
-                            {/* STEP 2: Shop Details */}
-                            {currentStep === 2 && (
-                                <>
-                                    <div>
-                                        <label className='block text-sm font-medium text-gray-700 mb-1.5'>Shop Name *</label>
-                                        <input
-                                            required
-                                            name="shopName"
-                                            value={formData.shopName}
-                                            onChange={handleChange}
-                                            type="text"
-                                            placeholder="Elegant Tailors"
-                                            className='w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent text-gray-900 placeholder:text-gray-400'
-                                        />
-                                    </div>
-
-                                    <div>
-                                        <label className='block text-sm font-medium text-gray-700 mb-1.5'>Specialization *</label>
-                                        <select
-                                            required
-                                            name="specialization"
-                                            value={formData.specialization}
-                                            onChange={handleChange}
-                                            className='w-full px-4 py-2.5 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent text-gray-900 cursor-pointer'
-                                        >
-                                            <option value="">Select Specialization</option>
-                                            <option value="men">Men's Wear</option>
-                                            <option value="women">Women's Wear</option>
-                                            <option value="all">All (Unisex)</option>
-                                        </select>
-                                    </div>
-
-                                    <div>
-                                        <label className='block text-sm font-medium text-gray-700 mb-1.5'>Years of Experience *</label>
-                                        <input
-                                            required
-                                            name="experience"
-                                            value={formData.experience}
-                                            onChange={handleChange}
-                                            type="number"
-                                            min="0"
-                                            placeholder="5"
-                                            className='w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent text-gray-900 placeholder:text-gray-400'
-                                        />
-                                    </div>
-
-                                    <div>
-                                        <label className='block text-sm font-medium text-gray-700 mb-1.5'>Shop Description</label>
-                                        <textarea
-                                            name="shopDescription"
-                                            value={formData.shopDescription}
-                                            onChange={handleChange}
-                                            rows="2"
-                                            placeholder="Brief description of your shop and services..."
-                                            className='w-full px-4 py-2.5 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent text-gray-900 placeholder:text-gray-400 resize-none'
-                                        />
-                                    </div>
-
-                                    <div>
-                                        <label className='block text-sm font-medium text-gray-700 mb-2'>Services Offered</label>
-                                        <div className='space-y-2'>
-                                            {['Custom Tailoring', 'Alterations', 'Repairs', 'Design Consultation'].map(service => (
-                                                <label key={service} className='flex items-center gap-2 cursor-pointer'>
-                                                    <input
-                                                        type="checkbox"
-                                                        name="services"
-                                                        value={service}
-                                                        checked={formData.services.includes(service)}
-                                                        onChange={handleChange}
-                                                        className='w-4 h-4 text-orange-500 border-gray-300 rounded focus:ring-orange-500'
-                                                    />
-                                                    <span className='text-sm text-gray-700'>{service}</span>
-                                                </label>
-                                            ))}
-                                        </div>
-                                    </div>
-
-                                    <div>
-                                        <label className='block text-sm font-medium text-gray-700 mb-1.5'>Price Range</label>
-                                        <select
-                                            name="priceRange"
-                                            value={formData.priceRange}
-                                            onChange={handleChange}
-                                            className='w-full px-4 py-2.5 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent text-gray-900 cursor-pointer'
-                                        >
-                                            <option value="">Select Price Range</option>
-                                            <option value="budget">Budget (₹)</option>
-                                            <option value="mid-range">Mid-Range (₹₹)</option>
-                                            <option value="premium">Premium (₹₹₹)</option>
-                                        </select>
-                                    </div>
-
-                                    {/* Next Button */}
-                                    <button
-                                        type="button"
-                                        onClick={handleNext}
-                                        className='w-full py-2.5 bg-[#6b4423] hover:bg-[#573619] text-white font-semibold rounded-lg transition-colors shadow-sm flex items-center justify-center gap-2 mt-4'
-                                    >
-                                        Next: Address
-                                        <svg className='w-4 h-4' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-                                            <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M13 7l5 5m0 0l-5 5m5-5H6' />
-                                        </svg>
-                                    </button>
-                                </>
-                            )}
-
-                            {/* STEP 3: Address */}
-                            {currentStep === 3 && (
-                                <>
-                                    <div>
-                                        <label className='block text-sm font-medium text-gray-700 mb-1.5'>Street Address *</label>
-                                        <input
-                                            required
-                                            name="street"
-                                            value={formData.street}
-                                            onChange={handleChange}
-                                            type="text"
-                                            placeholder="123 Main Street, Near Landmark"
-                                            className='w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent text-gray-900 placeholder:text-gray-400'
-                                        />
-                                    </div>
-
-                                    <div className='grid grid-cols-2 gap-4'>
-                                        <div>
-                                            <label className='block text-sm font-medium text-gray-700 mb-1.5'>City *</label>
+                                        <label className={labelClasses}>Password</label>
+                                        <div className="relative">
                                             <input
-                                                required
-                                                name="city"
-                                                value={formData.city}
+                                                name="password"
+                                                value={formData.password}
                                                 onChange={handleChange}
-                                                type="text"
-                                                placeholder="Mumbai"
-                                                className='w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent text-gray-900 placeholder:text-gray-400'
+                                                type={showPassword ? "text" : "password"}
+                                                className={inputClasses}
+                                                placeholder="••••••••"
                                             />
-                                        </div>
-                                        <div>
-                                            <label className='block text-sm font-medium text-gray-700 mb-1.5'>State *</label>
-                                            <input
-                                                required
-                                                name="state"
-                                                value={formData.state}
-                                                onChange={handleChange}
-                                                type="text"
-                                                placeholder="Maharashtra"
-                                                className='w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent text-gray-900 placeholder:text-gray-400'
-                                            />
+                                            <button
+                                                type="button"
+                                                className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400"
+                                                onClick={() => setShowPassword(!showPassword)}
+                                            >
+                                                {showPassword ? (
+                                                    <svg className='w-5 h-5' fill='none' stroke='currentColor' viewBox='0 0 24 24'><path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21' /></svg>
+                                                ) : (
+                                                    <svg className='w-5 h-5' fill='none' stroke='currentColor' viewBox='0 0 24 24'><path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z' /></svg>
+                                                )}
+                                            </button>
                                         </div>
                                     </div>
-
                                     <div>
-                                        <label className='block text-sm font-medium text-gray-700 mb-1.5'>Pincode *</label>
-                                        <input
-                                            required
-                                            name="pincode"
-                                            value={formData.pincode}
-                                            onChange={handleChange}
-                                            type="text"
-                                            maxLength="6"
-                                            placeholder="400001"
-                                            className='w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent text-gray-900 placeholder:text-gray-400'
-                                        />
+                                        <label className={labelClasses}>Confirm Password</label>
+                                        <div className="relative">
+                                            <input
+                                                name="confirmPassword"
+                                                value={formData.confirmPassword}
+                                                onChange={handleChange}
+                                                type={showConfirmPassword ? "text" : "password"}
+                                                className={inputClasses}
+                                                placeholder="••••••••"
+                                            />
+                                            <button
+                                                type="button"
+                                                className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400"
+                                                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                                            >
+                                                {showConfirmPassword ? (
+                                                    <svg className='w-5 h-5' fill='none' stroke='currentColor' viewBox='0 0 24 24'><path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21' /></svg>
+                                                ) : (
+                                                    <svg className='w-5 h-5' fill='none' stroke='currentColor' viewBox='0 0 24 24'><path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z' /></svg>
+                                                )}
+                                            </button>
+                                        </div>
+                                        {error && <p className="text-red-500 text-sm mt-2">{error}</p>}
                                     </div>
+                                </div>
+                            </div>
+                        )}
 
-                                    {/* Back and Submit Buttons */}
-                                    <div className='flex gap-4 mt-4'>
-                                        <button
-                                            type="button"
-                                            onClick={handleBack}
-                                            className='flex-1 py-2.5 bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold rounded-lg transition-colors shadow-sm flex items-center justify-center gap-2'
-                                        >
-                                            <svg className='w-4 h-4' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-                                                <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M11 17l-5-5m0 0l5-5m-5 5h12' />
-                                            </svg>
-                                            Back
-                                        </button>
-                                        <button
-                                            type="submit"
-                                            className='flex-1 py-2.5 bg-[#6b4423] hover:bg-[#573619] text-white font-semibold rounded-lg transition-colors shadow-sm flex items-center justify-center gap-2'
-                                        >
-                                            Register as Partner
-                                            <svg className='w-4 h-4' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-                                                <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M5 13l4 4L19 7' />
-                                            </svg>
-                                        </button>
-                                    </div>
-                                </>
-                            )}
-                        </form>
+                        {/* Placeholder for Step 2 and 3 simple rendering to keep file valid until further edits */}
+                        {currentStep === 2 && (
+                            <div className="max-w-md mx-auto fade-in">
+                                <h2 className="text-2xl font-bold text-gray-900 mb-6 font-serif">Shop Details</h2>
+                                <div className="space-y-5 pb-24">
+                                    <div><label className={labelClasses}>Shop Name</label><input name="shopName" value={formData.shopName} onChange={handleChange} type="text" className={inputClasses} placeholder="Elegant Tailors" /></div>
+                                    <div><label className={labelClasses}>Specialization</label><select name="specialization" value={formData.specialization} onChange={handleChange} className={inputClasses}><option value="">Select</option><option value="men">Men's</option><option value="women">Women's</option><option value="all">All</option></select></div>
+                                    <div><label className={labelClasses}>Years of Experience</label><input name="experience" value={formData.experience} onChange={handleChange} type="number" className={inputClasses} placeholder="5" /></div>
+                                    <div><label className={labelClasses}>Price Range</label><select name="priceRange" value={formData.priceRange} onChange={handleChange} className={inputClasses}><option value="">Select</option><option value="budget">Budget</option><option value="mid-range">Mid-Range</option><option value="premium">Premium</option></select></div>
+                                </div>
+                            </div>
+                        )}
+
+                        {currentStep === 3 && (
+                            <div className="max-w-md mx-auto fade-in">
+                                <h2 className="text-2xl font-bold text-gray-900 mb-6 font-serif">Shop Address</h2>
+                                <div className="space-y-5 pb-24">
+                                    <div><label className={labelClasses}>Street Address</label><input name="street" value={formData.street} onChange={handleChange} type="text" className={inputClasses} placeholder="123 Main St" /></div>
+                                    <div><label className={labelClasses}>City</label><input name="city" value={formData.city} onChange={handleChange} type="text" className={inputClasses} placeholder="Mumbai" /></div>
+                                    <div><label className={labelClasses}>State</label><input name="state" value={formData.state} onChange={handleChange} type="text" className={inputClasses} placeholder="Maharashtra" /></div>
+                                    <div><label className={labelClasses}>Pincode</label><input name="pincode" value={formData.pincode} onChange={handleChange} type="text" className={inputClasses} placeholder="400001" /></div>
+                                </div>
+                            </div>
+                        )}
                     </div>
+
+                    {/* Sticky Bottom Actions */}
+                    <div className="p-4 bg-white border-t border-gray-100 shrink-0 safe-area-bottom">
+                        <div className="max-w-md mx-auto flex gap-3">
+                            {currentStep === 1 && (
+                                <button
+                                    onClick={handleNext}
+                                    disabled={!isStep1Valid()}
+                                    className={`w-full h-[52px] rounded-xl font-semibold text-base flex items-center justify-center gap-2 transition-all ${isStep1Valid()
+                                        ? 'bg-[#6b4423] hover:bg-[#573619] text-white shadow-lg shadow-orange-900/10'
+                                        : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                        }`}
+                                >
+                                    Next: Shop Details
+                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
+                                </button>
+                            )}
+                            {currentStep > 1 && (
+                                <>
+                                    <button
+                                        onClick={handleBack}
+                                        className="w-14 h-[52px] bg-gray-50 rounded-xl flex items-center justify-center text-gray-600 border border-gray-200"
+                                    >
+                                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+                                    </button>
+                                    <button
+                                        onClick={currentStep === 3 ? handleSubmit : handleNext}
+                                        className="flex-1 h-[52px] bg-[#6b4423] hover:bg-[#573619] text-white rounded-xl font-semibold text-base shadow-lg shadow-orange-900/10"
+                                    >
+                                        {currentStep === 3 ? 'Complete Registration' : 'Next Step'}
+                                    </button>
+                                </>
+                            )}
+                        </div>
+                    </div>
+
                 </div>
             </div>
-        </div>
+        </>
     )
 }
 

@@ -2,6 +2,7 @@ import express from 'express';
 import jwt from 'jsonwebtoken';
 import Tailor from '../models/Tailor.js';
 import User from '../models/User.js';
+import Review from '../models/Review.js';
 
 const router = express.Router();
 
@@ -17,7 +18,7 @@ const generateToken = (id) => {
 // @access  Public
 router.post('/register', async (req, res) => {
     try {
-        const { name, email, password, phone, shopName, specialization, experience, address } = req.body;
+        const { name, email, password, phone, shopName, specialization, experience, address, googleId } = req.body;
 
         // Validation
         if (!password || password.length < 6) {
@@ -50,7 +51,8 @@ router.post('/register', async (req, res) => {
             shopName,
             specialization,
             experience,
-            address
+            address,
+            googleId
         });
 
         console.log('Tailor created successfully:', tailor.email);
@@ -210,6 +212,7 @@ router.put('/update-profile', async (req, res) => {
         if (specialization) updateData.specialization = specialization;
         if (address) updateData.address = address;
         if (businessHours) updateData.businessHours = businessHours;
+        if (req.body.bio) updateData.bio = req.body.bio;
 
         // Find tailor and update profile
         const tailor = await Tailor.findOneAndUpdate(
@@ -231,6 +234,7 @@ router.put('/update-profile', async (req, res) => {
             shopImage: tailor.shopImage,
             specialization: tailor.specialization,
             experience: tailor.experience,
+            bio: tailor.bio,
             address: tailor.address,
             businessHours: tailor.businessHours,
             userType: 'tailor',
@@ -269,6 +273,8 @@ router.get('/', async (req, res) => {
     }
 });
 
+
+
 // @desc    Get single tailor by ID
 // @route   GET /api/tailors/:id
 // @access  Public
@@ -280,9 +286,56 @@ router.get('/:id', async (req, res) => {
             return res.status(404).json({ message: 'Tailor not found' });
         }
 
-        res.json(tailor);
+        // Fetch reviews
+        const reviews = await Review.find({ tailorId: tailor._id }).sort({ createdAt: -1 });
+
+        // Convert to object and add reviews data
+        const tailorData = tailor.toObject();
+        tailorData.reviews = reviews;
+        tailorData.totalReviews = reviews.length;
+
+        res.json(tailorData);
     } catch (error) {
         res.status(500).json({ message: error.message });
+    }
+});
+
+// @desc    Create a new review
+// @route   POST /api/tailors/:id/reviews
+// @access  Private (Public for now logic, but frontend should check auth)
+router.post('/:id/reviews', async (req, res) => {
+    try {
+        const { customerId, customerName, rating, comment } = req.body;
+        const tailorId = req.params.id;
+
+        const tailor = await Tailor.findById(tailorId);
+        if (!tailor) {
+            return res.status(404).json({ message: 'Tailor not found' });
+        }
+
+        const reviewExists = await Review.findOne({ tailorId, customerId });
+        if (reviewExists) {
+            return res.status(400).json({ message: 'You have already reviewed this tailor' });
+        }
+
+        const review = await Review.create({
+            tailorId,
+            customerId,
+            customerName,
+            rating: Number(rating),
+            comment
+        });
+
+        // Recalculate average rating
+        const reviews = await Review.find({ tailorId });
+        const avg = reviews.reduce((acc, item) => item.rating + acc, 0) / reviews.length;
+
+        tailor.rating = avg;
+        await tailor.save();
+
+        res.status(201).json(review);
+    } catch (error) {
+        res.status(400).json({ message: error.message });
     }
 });
 

@@ -32,33 +32,38 @@ const ManagementTools = () => {
     ];
 
     return (
-        <div className='w-full py-16 bg-[#faf8f5]'>
-            <div className='max-w-7xl mx-auto px-6'>
-                {/* Section Header */}
-                <div className='text-center mb-12'>
-                    <p className='text-amber-600 font-semibold text-sm mb-2 tracking-wide uppercase'>FOR MODERN TAILORS</p>
-                    <h2 className='text-4xl font-serif font-bold text-gray-900'>
+        <div className='w-full py-8 md:py-16 bg-[#faf8f5]'>
+            <div className='max-w-7xl mx-auto px-4 md:px-6'>
+                {/* Section Header - Compact on mobile */}
+                <div className='text-center mb-6 md:mb-12'>
+                    <p className='text-amber-600 font-semibold text-xs md:text-sm mb-1 md:mb-2 tracking-wide uppercase'>FOR MODERN TAILORS</p>
+                    <h2 className='text-2xl md:text-4xl font-serif font-bold text-gray-900'>
                         Precision Management Tools
                     </h2>
-                    <p className='text-gray-600 max-w-2xl mx-auto mt-4'>
+                    <p className='text-gray-600 text-sm md:text-base max-w-2xl mx-auto mt-2 md:mt-4'>
                         Streamline your tailoring business with powerful tools designed for efficiency and growth.
                     </p>
                 </div>
 
-                {/* Tools Grid */}
-                <div className='grid grid-cols-1 md:grid-cols-3 gap-8'>
+                {/* Tools Grid - Compact cards on mobile */}
+                <div className='grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-8'>
                     {tools.map((tool, index) => (
-                        <div key={index} className='bg-white rounded-2xl p-8 text-center shadow-sm hover:shadow-lg transition-all duration-300'>
-                            {/* Icon */}
-                            <div className='flex justify-center mb-6'>
-                                {tool.icon}
+                        <div
+                            key={index}
+                            className={`bg-white rounded-xl md:rounded-2xl p-3 md:p-8 text-center shadow-sm hover:shadow-lg transition-all duration-300 ${index === tools.length - 1 ? 'col-span-2 md:col-span-1 max-w-[80%] md:max-w-none mx-auto w-full' : ''}`}
+                        >
+                            {/* Icon - Smaller on mobile */}
+                            <div className='flex justify-center mb-2 md:mb-6'>
+                                <div className='w-6 h-6 md:w-12 md:h-12'>
+                                    {React.cloneElement(tool.icon, { className: 'w-full h-full text-gray-700' })}
+                                </div>
                             </div>
 
                             {/* Title */}
-                            <h3 className='text-xl font-bold text-gray-900 mb-3'>{tool.title}</h3>
+                            <h3 className='text-sm md:text-xl font-bold text-gray-900 mb-1 md:mb-3 leading-tight'>{tool.title}</h3>
 
                             {/* Description */}
-                            <p className='text-gray-600 leading-relaxed'>{tool.description}</p>
+                            <p className='text-gray-600 text-xs md:text-base leading-snug md:leading-relaxed'>{tool.description}</p>
                         </div>
                     ))}
                 </div>

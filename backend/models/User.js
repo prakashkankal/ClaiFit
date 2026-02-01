@@ -15,8 +15,13 @@ const userSchema = mongoose.Schema({
     },
     password: {
         type: String,
-        required: true,
+        required: false,
         minlength: 6
+    },
+    googleId: {
+        type: String,
+        unique: true,
+        sparse: true
     },
     phone: {
         type: String,
@@ -49,6 +54,11 @@ const userSchema = mongoose.Schema({
     alternatePhone: {
         type: String,
         required: false
+    },
+    role: {
+        type: String,
+        enum: ['customer'],
+        default: 'customer'
     }
 }, {
     timestamps: true
@@ -56,7 +66,7 @@ const userSchema = mongoose.Schema({
 
 // Hash password before saving
 userSchema.pre('save', async function () {
-    if (!this.isModified('password')) {
+    if (!this.isModified('password') || !this.password) {
         return;
     }
 

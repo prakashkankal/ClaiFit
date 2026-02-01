@@ -13,7 +13,7 @@ export const useTheme = () => {
 export const ThemeProvider = ({ children }) => {
     // Check localStorage for saved theme, default to 'light'
     const [theme, setTheme] = useState(() => {
-        const savedTheme = localStorage.getItem('styleease-theme');
+        const savedTheme = localStorage.getItem('claifit-theme');
         return savedTheme || 'light';
     });
 
@@ -28,7 +28,7 @@ export const ThemeProvider = ({ children }) => {
         }
 
         // Save to localStorage
-        localStorage.setItem('styleease-theme', theme);
+        localStorage.setItem('claifit-theme', theme);
     }, [theme]);
 
     const toggleTheme = () => {

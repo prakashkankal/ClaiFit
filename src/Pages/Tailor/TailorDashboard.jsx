@@ -5,6 +5,8 @@ import RecentOrders from '../../components/Tailor/RecentOrders'
 import DashboardSidebar from '../../components/Tailor/DashboardSidebar'
 import axios from 'axios'
 
+import API_URL from '../../config/api';
+
 const TailorDashboard = () => {
     const navigate = useNavigate();
     const [tailorData, setTailorData] = useState(null);
@@ -24,7 +26,7 @@ const TailorDashboard = () => {
             const user = JSON.parse(userInfo);
 
             // Check if user is a tailor
-            if (user.userType !== 'tailor') {
+            if (user.role !== 'tailor' && user.userType !== 'tailor') {
                 // Not a tailor, redirect to home
                 navigate('/');
                 return;
@@ -42,7 +44,7 @@ const TailorDashboard = () => {
 
     const fetchDashboardSummary = async (tailorId) => {
         try {
-            const { data } = await axios.get(`http://localhost:5000/api/orders/${tailorId}`);
+            const { data } = await axios.get(`${API_URL}/api/orders/${tailorId}`);
             const orders = data.orders || [];
 
             const today = new Date();
@@ -113,19 +115,19 @@ const TailorDashboard = () => {
             />
 
             {/* Main Content */}
-            <main className="flex-1 lg:ml-72 p-8">
-                <header className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-8">
-                    <div>
-                        <h1 className="text-3xl font-serif font-bold text-slate-800">
-                            Welcome back, {getFirstName(tailorData.name)}! 👋
+            <main className="flex-1 lg:ml-72 p-3 md:p-6 lg:p-8 dashboard-main-mobile pb-24 md:pb-8">
+                <header className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-3 md:gap-4 mb-4 md:mb-8 dashboard-header-mobile">
+                    <div className="w-full lg:w-auto">
+                        <h1 className="text-2xl md:text-3xl font-serif font-bold text-slate-800">
+                            Welcome back, {getFirstName(tailorData.name)}!
                         </h1>
-                        <p className="text-slate-600 font-medium mt-1">{dashboardSummary}</p>
+                        <p className="text-sm md:text-base text-slate-600 font-medium mt-1">{dashboardSummary}</p>
                     </div>
 
-                    {/* New Order Button - Prominent */}
+                    {/* New Order Button - Desktop Only */}
                     <button
                         onClick={() => navigate('/new-order')}
-                        className="flex items-center gap-2 px-6 py-3 bg-linear-to-r from-[#6b4423] to-[#8b5a3c] hover:from-[#573619] hover:to-[#6b4423] text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
+                        className="hidden lg:flex items-center justify-center gap-2 px-6 py-3 bg-linear-to-r from-[#6b4423] to-[#8b5a3c] hover:from-[#573619] hover:to-[#6b4423] text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
                     >
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -137,6 +139,17 @@ const TailorDashboard = () => {
                 <DashboardStats tailorId={tailorData._id} />
                 <RecentOrders tailorId={tailorData._id} />
             </main>
+
+            {/* Mobile Floating Action Button (New Order) */}
+            <button
+                onClick={() => navigate('/new-order')}
+                className="lg:hidden fixed bottom-24 md:bottom-28 right-6 w-14 h-14 bg-linear-to-r from-[#6b4423] to-[#8b5a3c] text-white rounded-full shadow-2xl flex items-center justify-center z-50 hover:scale-110 active:scale-95 transition-all duration-200 ring-4 ring-white"
+                aria-label="New Order"
+            >
+                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 4v16m8-8H4" />
+                </svg>
+            </button>
         </div>
     )
 }

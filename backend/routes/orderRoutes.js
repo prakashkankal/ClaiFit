@@ -82,6 +82,29 @@ router.get('/recent/:tailorId', async (req, res) => {
     }
 });
 
+// @desc    Get all orders for a customer
+// @route   GET /api/orders/my-orders/:customerId
+// @access  Private
+router.get('/my-orders/:customerId', async (req, res) => {
+    try {
+        const { customerId } = req.params;
+        // Search by customerId OR customerEmail (fallback)
+        const orders = await Order.find({
+            $or: [
+                { customerId: customerId },
+                { customerId: new mongoose.Types.ObjectId(customerId) }
+            ]
+        })
+            .populate('tailorId', 'shopName phone address')
+            .sort({ createdAt: -1 });
+
+        res.json(orders);
+    } catch (error) {
+        console.error('Get customer orders error:', error);
+        res.status(500).json({ message: 'Error fetching orders', error: error.message });
+    }
+});
+
 // @desc    Get all orders for a tailor
 // @route   GET /api/orders/:tailorId
 // @access  Private

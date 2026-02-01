@@ -1,11 +1,14 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { useEffect, useState } from 'react'
+import RoleSelection from './Pages/Auth/RoleSelection'
 import Homepage from './Pages/Homepage'
 import TailorRegistration from './Pages/Tailor/TailorRegistration'
 import TailorDashboard from './Pages/Tailor/TailorDashboard'
 import TailorOrders from './Pages/Tailor/TailorOrders'
 import TailorCustomers from './Pages/Tailor/TailorCustomers'
+import TailorReviews from './Pages/Tailor/TailorReviews'
 import TailorPortfolio from './Pages/Tailor/TailorPortfolio'
+import TailorProfile from './Pages/Tailor/TailorProfile'
 import TailorSettings from './Pages/Tailor/TailorSettings'
 import NewOrder from './Pages/Tailor/NewOrder'
 import OrderDetailsPage from './Pages/Tailor/OrderDetailsPage'
@@ -13,8 +16,11 @@ import MeasurementPresets from './Pages/Tailor/MeasurementPresets'
 import Login from './Pages/Login'
 import UserRegistration from './Pages/UserRegistration'
 import Profile from './Pages/Customer/Profile'
+import CustomerOrders from './Pages/Customer/CustomerOrders'
 import TailorDetailPage from './Pages/Tailor/TailorDetailPage'
+import PostDetail from './Pages/Tailor/PostDetail'
 import Navbar from './components/Shared/Navbar'
+import BottomNav from './components/Shared/BottomNav'
 
 // Protected Route wrapper for tailor routes
 const ProtectedTailorRoute = ({ children }) => {
@@ -26,7 +32,7 @@ const ProtectedTailorRoute = ({ children }) => {
 
   try {
     const user = JSON.parse(userInfo);
-    if (user.userType !== 'tailor') {
+    if (user.role !== 'tailor' && user.userType !== 'tailor') { // Check both new and old role field for compatibility
       return <Navigate to="/" replace />;
     }
     return children;
@@ -43,7 +49,7 @@ const HomePageWrapper = () => {
     try {
       const user = JSON.parse(userInfo);
       // If tailor is logged in, redirect to dashboard
-      if (user.userType === 'tailor') {
+      if (user.role === 'tailor' || user.userType === 'tailor') {
         return <Navigate to="/dashboard" replace />;
       }
     } catch (error) {
@@ -58,17 +64,17 @@ const App = () => {
   return (
     <BrowserRouter>
       <div className='w-full bg-linear-to-br from-indigo-50 via-purple-50 to-pink-50 min-h-screen text-slate-900 selection:bg-violet-500/30'>
-        {/* Navbar is global, or we can keep it in Homepage if specific. Let's make it global for better navigation */}
-        {/* However, the Homepage component includes Navbar already. Let's refactor usage. */}
-        {/* For simplicity now, I'll remove Navbar from Homepage internal if I move it here, OR just route pages. */}
-        {/* Strategy: Route the entire page components. Homepage keeps its layout. Registration gets its own. */}
 
         <Routes>
           <Route path="/" element={<HomePageWrapper />} />
-          <Route path="/register" element={<TailorRegistration />} />
           <Route path="/login" element={<Login />} />
-          <Route path="/signup" element={<UserRegistration />} />
+          <Route path="/signup" element={<RoleSelection />} />
+          <Route path="/signup/customer" element={<UserRegistration />} />
+          <Route path="/signup/tailor" element={<TailorRegistration />} />
+          <Route path="/register" element={<Navigate to="/signup/tailor" replace />} />
+
           <Route path="/profile" element={<Profile />} />
+          <Route path="/my-orders" element={<CustomerOrders />} />
           <Route path="/tailor/:id" element={
             <>
               <Navbar />
@@ -105,9 +111,24 @@ const App = () => {
               <TailorCustomers />
             </ProtectedTailorRoute>
           } />
+          <Route path="/dashboard/reviews" element={
+            <ProtectedTailorRoute>
+              <TailorReviews />
+            </ProtectedTailorRoute>
+          } />
           <Route path="/dashboard/portfolio" element={
             <ProtectedTailorRoute>
               <TailorPortfolio />
+            </ProtectedTailorRoute>
+          } />
+          <Route path="/dashboard/profile" element={
+            <ProtectedTailorRoute>
+              <TailorProfile />
+            </ProtectedTailorRoute>
+          } />
+          <Route path="/dashboard/post/:postId" element={
+            <ProtectedTailorRoute>
+              <PostDetail />
             </ProtectedTailorRoute>
           } />
           <Route path="/dashboard/presets" element={
@@ -121,6 +142,9 @@ const App = () => {
             </ProtectedTailorRoute>
           } />
         </Routes>
+
+        {/* Bottom Navigation - Mobile Only */}
+        <BottomNav />
       </div>
     </BrowserRouter>
   )

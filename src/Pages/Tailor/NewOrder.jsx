@@ -43,7 +43,7 @@ const NewOrder = () => {
         }
         try {
             const user = JSON.parse(userInfo);
-            if (user.userType !== 'tailor') {
+            if (user.role !== 'tailor' && user.userType !== 'tailor') {
                 navigate('/');
                 return;
             }
@@ -262,7 +262,7 @@ const NewOrder = () => {
                 onUpdateTailorData={handleUpdateTailorData}
             />
 
-            <main className="flex-1 lg:ml-72 p-6 md:p-8">
+            <main className="flex-1 lg:ml-72 p-6 md:p-8 dashboard-main-mobile">
                 <div className="max-w-7xl mx-auto">
                     <header className="mb-8">
                         <div className="flex items-center gap-2 mb-4">
@@ -274,7 +274,10 @@ const NewOrder = () => {
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
                                 </svg>
                             </button>
-                            <h1 className="text-3xl font-serif font-bold text-slate-800">New Order 📝</h1>
+                            <h1 className="text-3xl font-serif font-bold text-slate-800 flex items-center gap-2">
+                                New Order
+                                <svg className="w-8 h-8 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                            </h1>
                         </div>
                         <p className="text-slate-500">Create a new order with one or more garments</p>
                     </header>

@@ -200,7 +200,10 @@ const RecentOrders = ({ tailorId }) => {
         <div className="bg-white/40 backdrop-blur-xl border border-white/60 rounded-3xl shadow-lg shadow-violet-500/5 overflow-hidden flex flex-col flex-1">
             <div className="p-6 border-b border-white/40 flex justify-between items-center">
                 <div>
-                    <h3 className="text-xl font-bold text-slate-800">Today's Work</h3>
+                    <h3 className="text-xl font-bold text-slate-800">
+                        <span className="md:hidden">Orders needing attention</span>
+                        <span className="hidden md:inline">Today's Work</span>
+                    </h3>
                     <p className="text-xs text-slate-500 mt-1">
                         {showingUpcoming ? 'Upcoming Orders' : 'Orders needing attention'}
                     </p>
@@ -219,18 +222,20 @@ const RecentOrders = ({ tailorId }) => {
                 </div>
             ) : orders.length === 0 ? (
                 <div className="p-8 text-center text-slate-500">
-                    <div className="text-6xl mb-4">📦</div>
+                    <div className="flex justify-center mb-4">
+                        <svg className="w-16 h-16 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
+                    </div>
                     <p className="text-lg font-medium">No orders yet</p>
                     <p className="text-sm mt-2">Create a new order to get started</p>
                 </div>
             ) : (
-                <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
-                    {orders.map((order) => {
+                <div className="p-4 md:p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4 orders-grid-mobile">
+                    {orders.map((order, index) => {
                         const dueDateInfo = getDueDateDisplay(order.dueDate);
                         return (
                             <div
                                 key={order._id}
-                                className="bg-white/60 border-2 border-dashed border-gray-300 rounded-2xl p-5 hover:shadow-lg hover:border-[#6b4423] transition-all"
+                                className={`bg-white md:bg-white/60 ${index >= 2 ? 'hidden md:block' : ''} border border-gray-200 shadow-sm rounded-xl md:rounded-2xl p-4 md:p-5 hover:shadow-lg hover:border-[#6b4423] transition-all order-card-mobile`}
                             >
                                 {/* Card Header - Order ID and Status - Clickable */}
                                 <div
@@ -239,23 +244,23 @@ const RecentOrders = ({ tailorId }) => {
                                 >
                                     <div className="flex justify-between items-start mb-4">
                                         <div>
-                                            <h4 className="text-lg font-bold text-slate-800">
+                                            <h4 className="text-lg md:text-xl font-bold text-slate-800 order-id">
                                                 #{order._id.slice(-6).toUpperCase()}
                                             </h4>
                                             <p className="text-sm text-slate-500 mt-0.5">{order.orderType}</p>
                                         </div>
                                         <span className={`px-3 py-1.5 rounded-full text-xs font-bold ${getStatusBadge(order.status)}`}>
-                                            {order.status}
+                                            {order.status === 'Cutting Completed' ? 'Stitching' : order.status}
                                         </span>
                                     </div>
 
-                                    {/* Card Body - Customer & Details */}
-                                    <div className="grid grid-cols-2 gap-4 mb-4">
-                                        <div>
+                                    {/* Card Body - Customer & Details - Stacked on mobile */}
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4 mb-4 order-details-mobile">
+                                        <div className="order-section overflow-hidden">
                                             <p className="text-xs text-slate-500 uppercase tracking-wide mb-1">Customer</p>
-                                            <p className="text-sm font-semibold text-slate-800">{order.customerName}</p>
+                                            <p className="text-sm font-semibold text-slate-800 truncate">{order.customerName}</p>
                                         </div>
-                                        <div>
+                                        <div className="order-section">
                                             <p className="text-xs text-slate-500 uppercase tracking-wide mb-1">Next Action</p>
                                             <p className="text-sm font-semibold text-slate-700">
                                                 {getNextAction(order.status)}
@@ -264,7 +269,7 @@ const RecentOrders = ({ tailorId }) => {
                                     </div>
 
                                     {/* Due Date - Highlighted */}
-                                    <div className="mb-4">
+                                    <div className="mb-4 pb-4 border-b border-gray-200 order-section">
                                         <p className="text-xs text-slate-500 uppercase tracking-wide mb-1">Due Date</p>
                                         <p className={`text-sm font-bold ${dueDateInfo.className}`}>
                                             {dueDateInfo.text}
@@ -272,8 +277,8 @@ const RecentOrders = ({ tailorId }) => {
                                     </div>
                                 </div>
 
-                                {/* Action Buttons - Outside clickable area */}
-                                <div className="flex gap-3 pt-4 border-t border-gray-200"
+                                {/* Action Buttons - Outside clickable area - Full width on mobile */}
+                                <div className="flex flex-col md:flex-row gap-2 md:gap-3 order-actions-mobile"
                                     onClick={(e) => e.stopPropagation()}>
                                     {order.status === 'Order Created' && (
                                         <button
@@ -285,7 +290,7 @@ const RecentOrders = ({ tailorId }) => {
                                                 <span>Updating...</span>
                                             ) : (
                                                 <>
-                                                    <span>✂️</span>
+                                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.121 14.121L19 19m-7-7l7-7m-7 7l-2.879 2.879M12 12L9.121 9.121m0 5.758a3 3 0 10-4.243 4.243 3 3 0 004.243-4.243zm0-5.758a3 3 0 10-4.243-4.243 3 3 0 004.243 4.243z" /></svg>
                                                     <span>Mark Cutting Done</span>
                                                 </>
                                             )}
@@ -301,7 +306,7 @@ const RecentOrders = ({ tailorId }) => {
                                                 <span>Updating...</span>
                                             ) : (
                                                 <>
-                                                    <span>✅</span>
+                                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                                                     <span>Mark Complete</span>
                                                 </>
                                             )}
@@ -309,7 +314,7 @@ const RecentOrders = ({ tailorId }) => {
                                     )}
                                     {order.status === 'Order Completed' && (
                                         <div className="flex-1 px-4 py-2.5 bg-green-50 border border-green-300 text-green-700 text-sm font-semibold rounded-lg flex items-center justify-center gap-2">
-                                            <span>✓</span>
+                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
                                             <span>Ready for Pickup</span>
                                         </div>
                                     )}

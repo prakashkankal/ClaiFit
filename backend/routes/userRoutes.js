@@ -1,5 +1,6 @@
 import express from 'express';
 import jwt from 'jsonwebtoken';
+import { OAuth2Client } from 'google-auth-library';
 import User from '../models/User.js';
 
 const router = express.Router();
@@ -70,6 +71,64 @@ router.post('/register', async (req, res) => {
             message: 'Server error during registration',
             error: error.message
         });
+    }
+});
+
+// @route   POST /api/users/google
+// @desc    Google Auth (Login/Register)
+// @access  Public
+router.post('/google', async (req, res) => {
+    const { token } = req.body;
+    const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+
+    try {
+        const ticket = await client.verifyIdToken({
+            idToken: token,
+            audience: process.env.GOOGLE_CLIENT_ID
+        });
+
+        const { name, email, picture, sub: googleId } = ticket.getPayload();
+
+        // Check if user exists
+        let user = await User.findOne({ email });
+
+        if (user) {
+            // If user exists but doesn't have googleId, link it
+            if (!user.googleId) {
+                user.googleId = googleId;
+                // Optional: Update avatar if missing
+                if (!user.profilePhoto) user.profilePhoto = picture;
+                await user.save();
+            }
+        } else {
+            // Create new user
+            user = await User.create({
+                name,
+                email,
+                googleId,
+                profilePhoto: picture,
+                // password is not required per schema change
+            });
+        }
+
+        res.status(200).json({
+            _id: user._id,
+            name: user.name,
+            email: user.email,
+            phone: user.phone,
+            profilePhoto: user.profilePhoto,
+            bio: user.bio,
+            dateOfBirth: user.dateOfBirth,
+            gender: user.gender,
+            city: user.city,
+            country: user.country,
+            alternatePhone: user.alternatePhone,
+            token: generateToken(user._id)
+        });
+
+    } catch (error) {
+        console.error('Google Auth Error:', error);
+        res.status(401).json({ message: 'Google authentication failed', error: error.message });
     }
 });
 

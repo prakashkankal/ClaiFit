@@ -13,6 +13,12 @@ const TailorDetailPage = () => {
     const [showLightbox, setShowLightbox] = useState(false);
     const [lightboxIndex, setLightboxIndex] = useState(0);
 
+    // Review State
+    const [ratingInput, setRatingInput] = useState(0);
+    const [reviewText, setReviewText] = useState('');
+    const [reviewSubmitting, setReviewSubmitting] = useState(false);
+    const [showLoginModal, setShowLoginModal] = useState(false);
+
     useEffect(() => {
         const fetchTailor = async () => {
             try {
@@ -100,6 +106,71 @@ const TailorDetailPage = () => {
         return stars;
     };
 
+    const checkAuth = () => {
+        const userInfo = localStorage.getItem('userInfo');
+        if (!userInfo) {
+            setShowLoginModal(true);
+            return false;
+        }
+        return true;
+    };
+
+    const handleSubmitReview = async () => {
+        if (!checkAuth()) return;
+
+        if (ratingInput === 0) {
+            alert('Please select a rating');
+            return;
+        }
+        if (!reviewText.trim()) {
+            alert('Please write a review');
+            return;
+        }
+
+        try {
+            setReviewSubmitting(true);
+            const user = JSON.parse(userInfo);
+
+            const response = await fetch(`http://localhost:5000/api/tailors/${id}/reviews`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    customerId: user._id,
+                    customerName: user.name,
+                    rating: ratingInput,
+                    comment: reviewText
+                }),
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.message || 'Failed to submit review');
+            }
+
+            // Update local state with new review
+            setTailor(prev => ({
+                ...prev,
+                reviews: [data, ...(prev.reviews || [])],
+                rating: (prev.rating * (prev.totalReviews || 0) + ratingInput) / ((prev.totalReviews || 0) + 1), // Approx update or just refetch. 
+                // Actually backend returns new review, but we need fresh average from backend or calculate it locally.
+                // Let's just refetch tailor to get correct average is safest, or trust backend calc logic I wrote in Step 2.
+                // But simplified approx:
+                totalReviews: (prev.totalReviews || 0) + 1
+            }));
+
+            setRatingInput(0);
+            setReviewText('');
+            alert('Review submitted successfully!');
+        } catch (error) {
+            alert(error.message);
+        } finally {
+            setReviewSubmitting(false);
+        }
+    };
+
     if (loading) {
         return (
             <div className="min-h-screen bg-[#faf8f5] flex items-center justify-center">
@@ -134,10 +205,30 @@ const TailorDetailPage = () => {
         : portfolioImages.filter(item => item.category === activeFilter);
 
     return (
-        <div className="min-h-screen bg-white">
-            {/* Secondary Navigation - Shows at 60% scroll */}
-            {/* Secondary Navigation - Shows at 60% scroll */}
-            <nav className={`fixed top-20 left-0 right-0 z-50 bg-[#D4C4B0] backdrop-blur-md shadow-sm transition-all duration-500 py-3 ${navScrolled ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0'}`}>
+        <div className="min-h-screen bg-white pb-24 md:pb-0">
+            {/* MOBILE: Sticky Top Controls */}
+            <div className="md:hidden absolute top-0 left-0 right-0 z-50 flex items-center justify-between px-4 py-4 bg-linear-to-b from-black/50 to-transparent pointer-events-none">
+                <button onClick={() => navigate(-1)} className="bg-white/90 flex items-center justify-center align-center backdrop-blur-sm p-2 rounded-full shadow-sm pointer-events-auto hover:bg-white transition-colors">
+                    <svg className="w-5 h-5 text-gray-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" />
+                    </svg>
+                </button>
+                <div className="flex gap-3 pointer-events-auto">
+                    <button className="bg-white/90 flex items-center justify-center align-center backdrop-blur-sm p-2 rounded-full shadow-sm hover:bg-white transition-colors">
+                        <svg className="w-5 h-5 text-gray-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                        </svg>
+                    </button>
+                    <button className="bg-white/90 flex items-center justify-center align-center backdrop-blur-sm p-2 rounded-full shadow-sm hover:bg-white transition-colors">
+                        <svg className="w-5 h-5 text-gray-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            {/* SECONDARY NAVIGATION - Desktop Only */}
+            <nav className={`hidden md:block fixed top-20 left-0 right-0 z-50 bg-[#D4C4B0] backdrop-blur-md shadow-sm transition-all duration-500 py-3 ${navScrolled ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0'}`}>
                 <div className="max-w-7xl mx-auto px-6 flex items-center justify-between relative">
                     <div className="hidden md:flex items-center gap-8">
                         <button onClick={() => scrollToSection('portfolio')} className="text-sm font-medium text-slate-700 hover:text-[#6b4423] transition-colors">Portfolio</button>
@@ -146,24 +237,55 @@ const TailorDetailPage = () => {
                         <button onClick={() => scrollToSection('location')} className="text-sm font-medium text-slate-700 hover:text-[#6b4423] transition-colors">Location</button>
                         <button onClick={() => scrollToSection('contact')} className="text-sm font-medium text-slate-700 hover:text-[#6b4423] transition-colors">Contact</button>
                     </div>
-
-                    <div className="absolute right-30 items-center justify-center">
-                        <button className="px-6 py-2 bg-[#6b4423] text-white rounded-lg hover:bg-[#573619] transition-colors text-sm font-semibold shadow-sm">
-                            Book Appointment
-                        </button>
-                    </div>
                 </div>
             </nav>
 
-            {/* Hero Section */}
-            <div className="pt-32 px-6">
+            {/* HERO SECTION */}
+            <div className="md:pt-32 md:px-6">
                 <div className="max-w-7xl mx-auto">
-                    {/* Title & Info */}
-                    <div className="mb-6">
+
+                    {/* MOBILE: Top Image Carousel */}
+                    <div className="md:hidden relative w-full h-[40vh] bg-gray-200">
+                        {tailor.shopImage ? (
+                            <img src={tailor.shopImage} alt={tailor.shopName} className="w-full h-full object-cover" />
+                        ) : (
+                            <div className="w-full h-full bg-linear-to-br from-amber-100 to-orange-100 flex items-center justify-center">
+                                <span className="text-4xl font-bold text-[#6b4423]">{getInitials(tailor.shopName)}</span>
+                            </div>
+                        )}
+                        <div className="absolute bottom-4 right-4 bg-black/70 text-white px-2.5 py-1 text-xs font-medium rounded-md backdrop-blur-sm">
+                            1 / {portfolioImages.length > 0 ? portfolioImages.length + 1 : 1}
+                        </div>
+                    </div>
+
+                    {/* MOBILE: Title & Key Details */}
+                    <div className="md:hidden px-4 py-6 border-b border-gray-100">
+                        <h1 className="text-2xl font-bold text-gray-900 mb-2 font-serif">{tailor.shopName}</h1>
+                        <div className="flex items-center gap-2 mb-1">
+                            {renderStars(tailor.rating || 0)}
+                            <span className="text-sm font-semibold text-gray-900 ml-1">{(tailor.rating || 0).toFixed(1)}</span>
+                            <span className="text-sm text-gray-500">({tailor.totalReviews || 0} reviews)</span>
+                        </div>
+                        <div className="flex items-center gap-1.5 text-gray-600 text-sm mt-2">
+                            <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                            </svg>
+                            <span className="underline decoration-dotted">{tailor.address?.city}, {tailor.address?.state}</span>
+                        </div>
+                    </div>
+
+                    {/* DESKTOP: Original Hero Content */}
+                    <div className="hidden md:block mb-6">
                         <h1 className="text-4xl font-serif font-bold text-gray-900 mb-3">{tailor.shopName}</h1>
                         <div className="flex flex-wrap items-center gap-4 text-sm">
                             <div className="flex items-center gap-1">
-                                <span className="font-semibold">⭐ {(tailor.rating || 0).toFixed(1)}</span>
+                                <span className="font-semibold flex items-center gap-1">
+                                    <svg className="w-4 h-4 text-amber-500 fill-amber-500" viewBox="0 0 20 20">
+                                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                                    </svg>
+                                    {(tailor.rating || 0).toFixed(1)}
+                                </span>
                                 <span className="text-slate-600">· {tailor.totalReviews || 0} reviews</span>
                             </div>
                             <div className="flex items-center gap-2">
@@ -178,9 +300,8 @@ const TailorDetailPage = () => {
                         </div>
                     </div>
 
-                    {/* Image Gallery Grid */}
-                    {/* Single Full Width Banner */}
-                    <div className="w-full h-[400px] rounded-xl overflow-hidden mb-8 shadow-md">
+                    {/* DESKTOP: Original Image Banner */}
+                    <div className="hidden md:block w-full h-[400px] rounded-xl overflow-hidden mb-8 shadow-md">
                         {tailor.shopImage ? (
                             <img src={tailor.shopImage} alt={tailor.shopName} className="w-full h-full object-cover hover:scale-105 transition-transform duration-700" />
                         ) : (
@@ -194,11 +315,11 @@ const TailorDetailPage = () => {
                 </div>
             </div>
 
-            {/* Main Content with Sidebar */}
-            <div className="max-w-7xl mx-auto px-6 pb-12">
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
-                    {/* Left Content */}
-                    <div className="lg:col-span-2 space-y-12">
+            {/* Main Content */}
+            <div className="max-w-7xl mx-auto px-4 md:px-6 pb-12">
+                <div className="grid grid-cols-1 gap-12">
+                    {/* Main Content Area - Full Width */}
+                    <div className="w-full space-y-8 md:space-y-12">
                         {/* Introduction */}
                         <section>
                             <h2 className="text-2xl font-bold text-gray-900 mb-4">About {tailor.name}</h2>
@@ -306,34 +427,87 @@ const TailorDetailPage = () => {
 
                         {/* Reviews */}
                         <section id="reviews">
-                            <h2 className="text-2xl font-bold text-gray-900 mb-6">Customer Reviews</h2>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="flex items-center justify-between mb-6">
+                                <h2 className="text-2xl font-bold text-gray-900">Customer Reviews</h2>
+                                <div className="flex items-center gap-1 font-semibold text-gray-900">
+                                    <svg className="w-5 h-5 fill-amber-400" viewBox="0 0 20 20">
+                                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                                    </svg>
+                                    <span>{(tailor.rating || 0).toFixed(1)}</span>
+                                </div>
+                            </div>
+
+                            {/* 1) Add Review Input */}
+                            <div className="bg-gray-50 rounded-xl p-4 mb-6 border border-gray-100">
+                                <textarea
+                                    value={reviewText}
+                                    onChange={(e) => setReviewText(e.target.value)}
+                                    onClick={() => checkAuth()}
+                                    placeholder="Write your review..."
+                                    className="w-full bg-white border border-gray-200 rounded-lg p-3 text-sm focus:outline-none focus:border-[#6b4423] focus:ring-1 focus:ring-[#6b4423] resize-none h-20 mb-3"
+                                ></textarea>
+                                <div className="flex items-center justify-between">
+                                    <div className="flex gap-1">
+                                        {[1, 2, 3, 4, 5].map((star) => (
+                                            <svg
+                                                key={star}
+                                                onClick={() => {
+                                                    if (checkAuth()) setRatingInput(star);
+                                                }}
+                                                className={`w-6 h-6 cursor-pointer transition-colors ${ratingInput >= star ? 'text-amber-400 fill-amber-400' : 'text-gray-300'}`}
+                                                fill="none"
+                                                stroke="currentColor"
+                                                viewBox="0 0 24 24"
+                                            >
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                                            </svg>
+                                        ))}
+                                    </div>
+                                    <button
+                                        onClick={handleSubmitReview}
+                                        disabled={reviewSubmitting}
+                                        className={`px-4 py-1.5 bg-[#6b4423] text-white text-sm font-medium rounded-lg hover:bg-[#573619] transition-colors ${reviewSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                    >
+                                        {reviewSubmitting ? 'Posting...' : 'Post Review'}
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* 2 & 3) Horizontal Scroll (Mobile) / Grid (Desktop) */}
+                            <div className="flex overflow-x-auto snap-x snap-mandatory gap-4 pb-4 -mx-4 px-4 md:grid md:grid-cols-2 md:gap-6 md:pb-0 md:mx-0 md:px-0 scrollbar-hide">
                                 {tailor.reviews && tailor.reviews.length > 0 ? (
                                     tailor.reviews.slice(0, 6).map((review, idx) => (
-                                        <div key={idx} className="border border-slate-200 rounded-lg p-4">
-                                            <div className="flex items-center justify-between mb-2">
-                                                <div className="flex items-center gap-2">
-                                                    <div className="w-10 h-10 rounded-full bg-[#6b4423] text-white flex items-center justify-center font-semibold">
+                                        <div key={idx} className="min-w-[85vw] md:min-w-0 snap-center border border-slate-200 rounded-xl p-4 bg-white shadow-sm flex flex-col h-full hover:border-[#6b4423] transition-colors">
+                                            <div className="flex items-center justify-between mb-3">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-10 h-10 rounded-full bg-[#6b4423] text-white flex items-center justify-center font-bold text-sm">
                                                         {review.customerName ? review.customerName[0].toUpperCase() : 'A'}
                                                     </div>
                                                     <div>
-                                                        <div className="font-semibold text-sm">{review.customerName || 'Anonymous'}</div>
-                                                        <div className="flex items-center gap-1">
+                                                        <div className="font-bold text-gray-900 text-sm">{review.customerName || 'Anonymous'}</div>
+                                                        <div className="flex items-center gap-0.5">
                                                             {renderStars(review.rating || 0)}
                                                         </div>
                                                     </div>
                                                 </div>
-                                                <span className="text-xs text-slate-500">
-                                                    {review.date ? new Date(review.date).toLocaleDateString() : ''}
+                                                <span className="text-xs text-slate-400 font-medium">
+                                                    {review.date ? new Date(review.date).toLocaleDateString(undefined, { month: 'short', year: 'numeric' }) : ''}
                                                 </span>
                                             </div>
-                                            <p className="text-sm text-slate-700">{review.comment}</p>
+                                            <p className="text-sm text-slate-600 leading-relaxed line-clamp-3 md:line-clamp-none">"{review.comment}"</p>
                                         </div>
                                     ))
                                 ) : (
-                                    <p className="text-slate-500 col-span-2">No reviews yet</p>
+                                    <p className="text-slate-500 col-span-2 text-center py-6 bg-slate-50 rounded-lg">No reviews yet. Be the first to review!</p>
                                 )}
                             </div>
+
+                            {/* 4) View All Reviews Button */}
+                            {tailor.reviews && tailor.reviews.length > 0 && (
+                                <button className="w-full mt-2 py-3 border border-gray-300 rounded-xl text-gray-700 font-semibold text-sm hover:bg-gray-50 transition-colors">
+                                    Show all {tailor.reviews.length} reviews
+                                </button>
+                            )}
                         </section>
 
                         <hr className="border-slate-200" />
@@ -354,56 +528,6 @@ const TailorDetailPage = () => {
                         </section>
                     </div>
 
-                    {/* Right Sidebar - Booking Card */}
-                    <div className="lg:col-span-1">
-                        <div className="sticky top-24 border border-slate-200 rounded-xl p-6 shadow-lg">
-                            <div className="mb-6">
-                                <div className="text-2xl font-bold text-gray-900 mb-1">
-                                    Starting from ₹{tailor.priceRange === 'budget' ? '500' : tailor.priceRange === 'premium' ? '2000' : '1000'}
-                                </div>
-                                <div className="text-sm text-slate-600">per outfit</div>
-                            </div>
-
-                            <div className="space-y-4 mb-6">
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-2">Service Type</label>
-                                    <select className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#6b4423]">
-                                        <option>Custom Stitching</option>
-                                        <option>Alterations</option>
-                                        <option>Custom Design</option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-2">Date</label>
-                                    <input type="date" className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#6b4423]" />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-2">Time Slot</label>
-                                    <select className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#6b4423]">
-                                        <option>Morning (9 AM - 12 PM)</option>
-                                        <option>Afternoon (12 PM - 3 PM)</option>
-                                        <option>Evening (3 PM - 6 PM)</option>
-                                    </select>
-                                </div>
-                            </div>
-
-                            <button className="w-full py-3 bg-[#6b4423] text-white rounded-lg hover:bg-[#573619] transition-colors font-semibold mb-3">
-                                Book Appointment
-                            </button>
-                            <a
-                                href={`https://wa.me/${tailor.phone?.replace(/[^0-9]/g, '')}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="w-full py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-semibold flex items-center justify-center gap-2"
-                            >
-                                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                                    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
-                                </svg>
-                                Chat on WhatsApp
-                            </a>
-                            <p className="text-xs text-center text-slate-500 mt-4">✓ No advance payment required</p>
-                        </div>
-                    </div>
                 </div>
 
                 {/* Contact Section */}
@@ -450,8 +574,45 @@ const TailorDetailPage = () => {
                 lightboxIndex={lightboxIndex}
                 setLightboxIndex={setLightboxIndex}
             />
+            {/* Login Required Modal */}
+            {showLoginModal && (
+                <div className="fixed inset-0 z-100 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+                    {/* Dimmed Background */}
+                    <div
+                        className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
+                        onClick={() => setShowLoginModal(false)}
+                    ></div>
+
+                    {/* Modal Content */}
+                    <div className="relative w-full md:w-[480px] bg-white rounded-t-2xl md:rounded-2xl p-6 shadow-2xl transform transition-all animate-in slide-in-from-bottom duration-300">
+                        <div className="text-center mb-6">
+                            <div className="w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                                <svg className="w-6 h-6 text-amber-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                                </svg>
+                            </div>
+                            <h3 className="text-xl font-bold text-gray-900 mb-2">Login Required</h3>
+                            <p className="text-gray-500">Please log in to write a review for this tailor.</p>
+                        </div>
+
+                        <div className="space-y-3">
+                            <button
+                                onClick={() => navigate('/login')}
+                                className="w-full py-3.5 bg-[#6b4423] text-white rounded-xl font-semibold text-base hover:bg-[#573619] active:scale-[0.98] transition-transform shadow-sm"
+                            >
+                                Login / Sign up
+                            </button>
+                            <button
+                                onClick={() => setShowLoginModal(false)}
+                                className="w-full py-3.5 bg-white border border-gray-200 text-gray-700 rounded-xl font-semibold text-base hover:bg-gray-50 active:scale-[0.98] transition-transform"
+                            >
+                                Cancel
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
-
 export default TailorDetailPage;

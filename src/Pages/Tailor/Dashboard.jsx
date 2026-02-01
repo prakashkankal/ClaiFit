@@ -3,10 +3,14 @@ import { useNavigate } from 'react-router-dom'
 import DashboardStats from '../../components/Tailor/DashboardStats'
 import RecentOrders from '../../components/Tailor/RecentOrders'
 import DashboardSidebar from '../../components/Tailor/DashboardSidebar'
+import ProfileCompletionModal from '../../components/Tailor/ProfileCompletionModal'
+import { calculateProfileCompletion } from '../../utils/profileCompletion'
 
 const Dashboard = () => {
     const navigate = useNavigate();
     const [tailorData, setTailorData] = useState(null);
+    const [showModal, setShowModal] = useState(false);
+    const [completionData, setCompletionData] = useState({ percentage: 0, missingFields: [] });
 
     useEffect(() => {
         // Get logged-in tailor data from localStorage
@@ -22,13 +26,23 @@ const Dashboard = () => {
             const user = JSON.parse(userInfo);
 
             // Check if user is a tailor
-            if (user.userType !== 'tailor') {
+            if (user.role !== 'tailor' && user.userType !== 'tailor') {
                 // Not a tailor, redirect to home
                 navigate('/');
                 return;
             }
 
             setTailorData(user);
+
+            // Check Profile Completion
+            const completion = calculateProfileCompletion(user);
+            setCompletionData(completion);
+
+            const hasSeenModal = sessionStorage.getItem('hasSeenProfileModal');
+            if (completion.percentage < 100 && !hasSeenModal) {
+                setShowModal(true);
+                sessionStorage.setItem('hasSeenProfileModal', 'true');
+            }
         } catch (error) {
             console.error('Error parsing user data:', error);
             navigate('/login');
@@ -48,6 +62,10 @@ const Dashboard = () => {
     const getFirstName = (name) => {
         if (!name) return 'Tailor';
         return name.split(' ')[0];
+    };
+
+    const handleCloseModal = () => {
+        setShowModal(false);
     };
 
     if (!tailorData) {
@@ -91,12 +109,42 @@ const Dashboard = () => {
                     </div>
                 </header>
 
+
+                {/* Profile Completion Banner */}
+                {tailorData && calculateProfileCompletion(tailorData).percentage < 100 && (
+                    <div className="mb-8 bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-center justify-between shadow-sm animate-fade-in">
+                        <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center text-amber-600 shrink-0">
+                                <span className="font-bold text-sm">{calculateProfileCompletion(tailorData).percentage}%</span>
+                            </div>
+                            <div>
+                                <h3 className="text-sm font-bold text-slate-800">Your profile is incomplete</h3>
+                                <p className="text-xs text-slate-500">
+                                    Complete your profile to unlock full features and appear in search results.
+                                </p>
+                            </div>
+                        </div>
+                        <button
+                            onClick={() => navigate('/dashboard/profile', { state: { openEditModal: true } })}
+                            className="px-4 py-2 bg-[#6b4423] hover:bg-[#573619] text-white text-xs font-bold rounded-lg transition-colors whitespace-nowrap"
+                        >
+                            Complete Now
+                        </button>
+                    </div>
+                )}
+
                 <DashboardStats tailorId={tailorData._id} />
                 <RecentOrders tailorId={tailorData._id} />
+
+                <ProfileCompletionModal
+                    isOpen={showModal}
+                    onClose={handleCloseModal}
+                    completionData={completionData}
+                    tailorData={tailorData}
+                />
             </main>
-        </div>
+        </div >
     )
 }
 
 export default Dashboard
-

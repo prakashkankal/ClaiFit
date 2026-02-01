@@ -17,7 +17,7 @@ const Customers = () => {
         }
         try {
             const user = JSON.parse(userInfo);
-            if (user.userType !== 'tailor') {
+            if (user.role !== 'tailor' && user.userType !== 'tailor') {
                 navigate('/');
                 return;
             }

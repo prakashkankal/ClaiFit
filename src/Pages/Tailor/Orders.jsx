@@ -18,7 +18,7 @@ const Orders = () => {
         }
         try {
             const user = JSON.parse(userInfo);
-            if (user.userType !== 'tailor') {
+            if (user.role !== 'tailor' && user.userType !== 'tailor') {
                 navigate('/');
                 return;
             }
@@ -117,7 +117,7 @@ const Orders = () => {
             {/* Main Content */}
             <main className="flex-1 lg:ml-72 p-8">
                 <header className="mb-8">
-                    <h1 className="text-3xl font-serif font-bold text-slate-800 mb-2">Orders 🧵</h1>
+                    <h1 className="text-3xl font-serif font-bold text-slate-800 mb-2">Orders</h1>
                     <p className="text-slate-500">Manage all your customer orders</p>
                 </header>
 
@@ -172,12 +172,17 @@ const Orders = () => {
                         </div>
                     ) : error ? (
                         <div className="p-12 text-center">
-                            <div className="text-red-600 text-lg mb-2">⚠️ Error</div>
+                            <div className="text-red-600 text-lg mb-2 flex items-center justify-center gap-2">
+                                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                                Error
+                            </div>
                             <p className="text-slate-600">{error}</p>
                         </div>
                     ) : filteredOrders.length === 0 ? (
                         <div className="p-12 text-center">
-                            <div className="text-6xl mb-4">📦</div>
+                            <div className="flex justify-center mb-4">
+                                <svg className="w-16 h-16 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
+                            </div>
                             <p className="text-slate-600 text-lg">
                                 {selectedStatus === 'All'
                                     ? 'No orders yet. Orders will appear here once customers place them.'

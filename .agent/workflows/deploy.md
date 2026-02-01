@@ -1,215 +1,88 @@
 ---
-description: Deploy the StyleEase application to production
+description: Deploy the Claifit (StyleEase) application
 ---
 
-# Deployment Guide for StyleEase
+# Deployment Guide for Claifit
 
-This guide covers deploying your full-stack MERN application (React frontend + Node.js backend + MongoDB) to production.
+This guide covers deploying the MERN stack application (Frontend + Backend) to production.
 
 ## Prerequisites
 
-Before deploying, ensure you have:
-- Git repository (GitHub, GitLab, or Bitbucket)
-- Environment variables ready (MongoDB URI, JWT secret, etc.)
-- Node.js and npm installed
-- All dependencies listed in package.json
+1.  **Git Repository**: Ensure your code is pushed to GitHub/GitLab.
+2.  **Database**: You need a MongoDB connection string (e.g., MongoDB Atlas).
+3.  **Accounts**:
+    *   [Render](https://render.com) (for Backend)
+    *   [Vercel](https://vercel.com) (for Frontend)
 
-## Option 1: Deploy to Render (Recommended - Free Tier Available)
+## Part 1: Backend Deployment (Render)
 
-### Step 1: Prepare Your Repository
+We will deploy the backend first so we have the API URL for the frontend.
 
-1. **Ensure your code is pushed to a Git repository**
-   ```bash
-   git init
-   git add .
-   git commit -m "Prepare for deployment"
-   git remote add origin <your-repo-url>
-   git push -u origin main
-   ```
+1.  **Create a New Web Service**:
+    *   Go to the Render Dashboard.
+    *   Click "New +" -> "Web Service".
+    *   Connect your GitHub repository.
 
-2. **Create a `.gitignore` file** (if not exists)
-   Make sure it includes:
-   ```
-   node_modules/
-   .env
-   dist/
-   backend/node_modules/
-   backend/.env
-   ```
+2.  **Configure Service**:
+    *   **Name**: `claifit-backend` (or similar)
+    *   **Root Directory**: `backend` (Important! Your backend code is in this subfolder)
+    *   **Runtime**: Node
+    *   **Build Command**: `npm install`
+    *   **Start Command**: `npm start` (or `node server.js`)
 
-### Step 2: Deploy Backend to Render
+3.  **Environment Variables**:
+    *   Add the following variables in the "Environment" tab:
+        *   `MONGO_URI`: Your MongoDB connection string.
+        *   `JWT_SECRET`: A strong secret key.
+        *   `GOOGLE_CLIENT_ID`: From Google Cloud Console.
+        *   `GOOGLE_CLIENT_SECRET`: From Google Cloud Console.
+        *   `R2_ACCESS_KEY_ID`: (If you use Cloudflare R2)
+        *   `R2_SECRET_ACCESS_KEY`: (If you use Cloudflare R2)
+        *   `R2_BUCKET_NAME`: (If you use Cloudflare R2)
+        *   `R2_ACCOUNT_ID`: (If you use Cloudflare R2)
+        *   `PORT`: `10000` (Render sets this automatically, but good to know)
 
-1. Go to [Render Dashboard](https://dashboard.render.com/)
-2. Click **New +** → **Web Service**
-3. Connect your Git repository
-4. Configure:
-   - **Name**: styleease-backend
-   - **Region**: Select closest to your users
-   - **Branch**: main
-   - **Root Directory**: backend
-   - **Runtime**: Node
-   - **Build Command**: `npm install`
-   - **Start Command**: `npm start`
-   - **Instance Type**: Free (or paid for better performance)
+4.  **Deploy**:
+    *   Click "Create Web Service".
+    *   Wait for the build to finish.
+    *   **Copy the Service URL** (e.g., `https://claifit-backend.onrender.com`). You will need this for the frontend.
 
-5. **Add Environment Variables**:
-   - `MONGODB_URI`: Your MongoDB Atlas connection string
-   - `JWT_SECRET`: Your JWT secret key
-   - `PORT`: 10000 (Render default)
-   - `NODE_ENV`: production
-   - Any other environment variables your backend needs
+## Part 2: Frontend Deployment (Vercel)
 
-6. Click **Create Web Service**
-7. Note your backend URL (e.g., `https://styleease-backend.onrender.com`)
+Now we deploy the frontend and connect it to the backend.
 
-### Step 3: Deploy Frontend to Render
+1.  **Import Project**:
+    *   Go to the Vercel Dashboard.
+    *   Click "Add New..." -> "Project".
+    *   Import your GitHub repository.
 
-1. In Render Dashboard, click **New +** → **Static Site**
-2. Connect the same repository
-3. Configure:
-   - **Name**: styleease-frontend
-   - **Branch**: main
-   - **Root Directory**: (leave empty, as frontend is in root)
-   - **Build Command**: `npm install && npm run build`
-   - **Publish Directory**: dist
+2.  **Configure Project**:
+    *   **Framework Preset**: Vite (should be detected automatically).
+    *   **Root Directory**: `./` (default).
+    *   **Build Command**: `npm run build` (default).
+    *   **Output Directory**: `dist` (default).
 
-4. **Add Environment Variables**:
-   - `VITE_API_URL`: Your backend URL from Step 2
+3.  **Environment Variables**:
+    *   Add the following variable:
+        *   `VITE_API_URL`: Paste your Render Backend URL here (e.g., `https://claifit-backend.onrender.com`).
+        *   **Important**: Do NOT add a trailing slash `/` to the URL if your code appends `/api/...`.
 
-5. Click **Create Static Site**
+4.  **Deploy**:
+    *   Click "Deploy".
+    *   Vercel will build and deploy your site.
 
-### Step 4: Update Frontend API Configuration
+## Part 3: Post-Deployment
 
-Before building, ensure your frontend uses the environment variable:
+1.  **Update Google OAuth Redirect URIs**:
+    *   Go to Google Cloud Console.
+    *   Add your new Frontend URL (e.g., `https://claifit.vercel.app`) to "Authorized JavaScript origins".
+    *   Add `https://claifit.vercel.app` (and any callback paths if used) to "Authorized redirect URIs".
 
-In your `src/` directory, update API calls to use:
-```javascript
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000'
-```
-
-## Option 2: Deploy to Vercel (Frontend) + Render (Backend)
-
-### Backend on Render
-Follow Step 2 from Option 1 above
-
-### Frontend on Vercel
-
-1. Install Vercel CLI:
-   ```bash
-   npm i -g vercel
-   ```
-
-2. **Login to Vercel**:
-   ```bash
-   vercel login
-   ```
-
-3. **Deploy Frontend**:
-   ```bash
-   vercel --prod
-   ```
-
-4. **Set Environment Variables** in Vercel Dashboard:
-   - `VITE_API_URL`: Your backend URL
-
-## Option 3: Deploy to Railway (Full Stack)
-
-1. Go to [Railway](https://railway.app/)
-2. Click **New Project** → **Deploy from GitHub repo**
-3. Select your repository
-
-### Deploy Backend:
-- **Root Directory**: backend
-- **Build Command**: `npm install`
-- **Start Command**: `npm start`
-- **Add Environment Variables**: MONGODB_URI, JWT_SECRET, etc.
-
-### Deploy Frontend:
-- **Root Directory**: (root)
-- **Build Command**: `npm install && npm run build`
-- **Start Command**: `npm run preview`
-- **Add Environment Variables**: VITE_API_URL
-
-## Option 4: Deploy to DigitalOcean App Platform
-
-1. Go to [DigitalOcean](https://cloud.digitalocean.com/apps)
-2. Click **Create App** → **GitHub**
-3. Configure Backend and Frontend as separate components
-4. Add environment variables
-5. Deploy
-
-## MongoDB Setup (Required for All Options)
-
-### Using MongoDB Atlas (Recommended)
-
-1. Go to [MongoDB Atlas](https://www.mongodb.com/cloud/atlas)
-2. Create a free cluster
-3. Create a database user
-4. Whitelist IP addresses (use `0.0.0.0/0` for all IPs in production)
-5. Get your connection string
-6. Add to environment variables as `MONGODB_URI`
-
-## Post-Deployment Checklist
-
-- [ ] Test all API endpoints
-- [ ] Verify database connections
-- [ ] Test user registration/login
-- [ ] Test tailor dashboard functionality
-- [ ] Test order creation and management
-- [ ] Verify image uploads work
-- [ ] Check CORS settings
-- [ ] Set up custom domain (optional)
-- [ ] Set up SSL certificate (usually automatic)
-- [ ] Monitor logs for errors
-- [ ] Set up error tracking (e.g., Sentry)
-- [ ] Configure CI/CD for automatic deployments
-
-## Environment Variables Reference
-
-### Backend (.env)
-```
-MONGODB_URI=your_mongodb_connection_string
-JWT_SECRET=your_jwt_secret_key
-PORT=5000
-NODE_ENV=production
-FRONTEND_URL=your_frontend_url
-```
-
-### Frontend (.env)
-```
-VITE_API_URL=your_backend_url
-```
+2.  **Cors Configuration (Backend)**:
+    *   Ensure your backend `server.js` allows requests from your new frontend domain.
+    *   Update `cors` options in `backend/server.js` to include the verified Vercel domain.
 
 ## Troubleshooting
 
-### Backend Issues
-- Check logs in your hosting platform dashboard
-- Verify environment variables are set correctly
-- Ensure MongoDB Atlas allows connections from your host IP
-- Check CORS configuration in backend
-
-### Frontend Issues
-- Verify `VITE_API_URL` is set correctly
-- Check browser console for errors
-- Ensure build completes successfully
-- Verify API endpoints are accessible
-
-### Common Errors
-- **CORS errors**: Update CORS settings in backend to allow frontend URL
-- **Database connection failed**: Check MongoDB URI and IP whitelist
-- **404 on routes**: Configure routing for Single Page Application
-- **Environment variables not working**: Ensure they're prefixed with `VITE_` for Vite
-
-## Recommended Deployment Strategy
-
-For the best free deployment:
-- **Backend**: Render (free tier)
-- **Frontend**: Vercel or Render Static Site (free tier)
-- **Database**: MongoDB Atlas (free tier M0)
-
-This combination provides:
-- Automatic HTTPS
-- Global CDN for frontend
-- Automatic deployments on git push
-- Good performance on free tier
-- Easy scaling when needed
+-   **"Network Error"**: Check `VITE_API_URL` in Vercel. Check CORS in Backend.
+-   **White Screen on Frontend**: Check browser console for errors. content_security_policy issues or missing env vars.

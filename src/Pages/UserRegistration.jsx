@@ -1,8 +1,8 @@
 import React, { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { GoogleLogin } from '@react-oauth/google'
 import axios from 'axios'
-import logoS from '../assets/styleEase.png'
-import logoFull from '../assets/styleEase.png'
+import API_URL from '../config/api'
 
 const UserRegistration = () => {
     const navigate = useNavigate();
@@ -23,11 +23,32 @@ const UserRegistration = () => {
         setError('');
     };
 
+    const handleGoogleSuccess = async (credentialResponse) => {
+        try {
+            setLoading(true);
+            const { credential } = credentialResponse;
+            const res = await axios.post(`${API_URL}/api/auth/google`, {
+                token: credential,
+                role: 'customer'
+            });
+
+            localStorage.setItem('userInfo', JSON.stringify(res.data));
+            navigate('/');
+        } catch (err) {
+            setError(err.response?.data?.message || 'Google Sign-Up Failed');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleGoogleError = () => {
+        setError('Google Sign-Up Failed');
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
 
-        // Validation
         if (formData.password !== formData.confirmPassword) {
             setError('Passwords do not match!');
             return;
@@ -41,7 +62,7 @@ const UserRegistration = () => {
         setLoading(true);
 
         try {
-            const { data } = await axios.post('http://localhost:5000/api/users/register', {
+            const { data } = await axios.post(`${API_URL}/api/users/register`, {
                 name: formData.name,
                 email: formData.email,
                 password: formData.password,
@@ -49,7 +70,6 @@ const UserRegistration = () => {
             });
 
             localStorage.setItem('userInfo', JSON.stringify(data));
-            alert('Registration successful! Welcome to StyleEase.');
             navigate('/');
         } catch (err) {
             setError(err.response?.data?.message || 'Registration failed. Please try again.');
@@ -58,250 +78,202 @@ const UserRegistration = () => {
         }
     };
 
-    return (
-        <div className='h-screen flex overflow-hidden'>
-            {/* Left Side - Branding */}
-            <div className='hidden lg:flex lg:w-1/2 bg-[#1e3a5f] relative flex-col justify-between p-12'>
-                {/* Logo */}
-                <div className='flex items-center gap-3'>
-                    <img src={logoFull} alt="StyleEase" className='w-32 h-auto object-contain' />
-                </div>
+    // Shared Input Styles
+    const inputClasses = "w-full h-[48px] px-4 py-3 bg-white border border-gray-200 rounded-xl text-base text-gray-900 focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent transition-all placeholder:text-gray-400";
+    const labelClasses = "block text-sm font-medium text-gray-900 mb-1.5";
 
-                {/* Quote */}
+    return (
+        <div className='min-h-screen flex bg-white lg:bg-[#f5f5f0]'>
+            {/* Left Side - Branding (Desktop Only) */}
+            <div className='hidden lg:flex lg:w-1/2 bg-[#1e3a5f] relative flex-col justify-between p-12'>
+                <div className='flex items-center gap-3'>
+                    <span className="text-4xl font-bold text-white tracking-tight" style={{ fontFamily: '"Playfair Display", serif' }}>
+                        Claifit
+                    </span>
+                </div>
                 <div className='text-white max-w-md'>
                     <p className='text-3xl font-light leading-relaxed mb-4'>
                         "Elegance is not standing out, but being remembered."
                     </p>
                     <p className='text-lg text-gray-300'>— Giorgio Armani</p>
                 </div>
-
-                {/* Scissors Decoration */}
-                <div className='absolute bottom-12 right-12 opacity-30'>
-                    <svg className='w-32 h-32 text-white rotate-45' fill='none' stroke='currentColor' strokeWidth='1.5' viewBox='0 0 24 24'>
-                        <path strokeLinecap='round' strokeLinejoin='round' d='M7.848 8.25l1.536.887M7.848 8.25a3 3 0 11-5.196-3 3 3 0 015.196 3zm1.536.887a2.165 2.165 0 011.083 1.839c.005.351.054.695.14 1.024M9.384 9.137l2.077 1.199M7.848 15.75l1.536-.887m-1.536.887a3 3 0 11-5.196 3 3 3 0 015.196-3zm1.536-.887a2.165 2.165 0 001.083-1.838c.005-.352.054-.695.14-1.025m-1.223 2.863l2.077-1.199m0-3.328a4.323 4.323 0 012.068-1.379l5.325-1.628a4.5 4.5 0 012.48-.044l.803.215-7.794 4.5m-2.882-1.664A4.33 4.33 0 0010.607 12m3.736 0l7.794 4.5-.802.215a4.5 4.5 0 01-2.48-.043l-5.326-1.629a4.324 4.324 0 01-2.068-1.379M14.343 12l-2.882 1.664' />
-                    </svg>
-                </div>
-
-                {/* Footer */}
                 <div className='text-gray-400 text-sm'>
-                    © 2024 StyleEase Atelier Systems
+                    © 2024 Claifit Atelier Systems
                 </div>
             </div>
 
             {/* Right Side - Registration Form */}
-            <div className='w-full lg:w-1/2 bg-[#f5f5f0] flex items-center justify-center p-6 overflow-y-auto'>
-                <div className='w-full max-w-md'>
-                    {/* Registration Card */}
-                    <div className='relative bg-white rounded-2xl dashed-border p-8 shadow-sm'>
-                        {/* Crown Decoration */}
-                        <div className='absolute -top-3 -right-3 w-8 h-8 rounded-full flex items-center justify-center rotate-12'>
-                            <svg className='w-32 h-32 text-gray-800 rotate-45' fill='none' stroke='currentColor' strokeWidth='1.5' viewBox='0 0 24 24'>
-                                <path strokeLinecap='round' strokeLinejoin='round' d='M7.848 8.25l1.536.887M7.848 8.25a3 3 0 11-5.196-3 3 3 0 015.196 3zm1.536.887a2.165 2.165 0 011.083 1.839c.005.351.054.695.14 1.024M9.384 9.137l2.077 1.199M7.848 15.75l1.536-.887m-1.536.887a3 3 0 11-5.196 3 3 3 0 015.196-3zm1.536-.887a2.165 2.165 0 001.083-1.838c.005-.352.054-.695.14-1.025m-1.223 2.863l2.077-1.199m0-3.328a4.323 4.323 0 012.068-1.379l5.325-1.628a4.5 4.5 0 012.48-.044l.803.215-7.794 4.5m-2.882-1.664A4.33 4.33 0 0010.607 12m3.736 0l7.794 4.5-.802.215a4.5 4.5 0 01-2.48-.043l-5.326-1.629a4.324 4.324 0 01-2.068-1.379M14.343 12l-2.882 1.664' />
+            <div className='w-full lg:w-1/2 flex flex-col justify-center p-6 lg:p-12'>
+                <div className='w-full max-w-md mx-auto'>
+
+                    {/* Mobile Back Button */}
+                    <div className='mb-6 lg:hidden'>
+                        <button onClick={() => navigate('/signup')} className='p-2 -ml-2 rounded-full hover:bg-gray-50 transition-colors inline-flex items-center gap-2 text-gray-500'>
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                             </svg>
+                            <span className="text-sm font-medium">Back</span>
+                        </button>
+                    </div>
+
+                    {/* Header */}
+                    <div className='text-center mb-8'>
+                        <span className="block lg:hidden text-2xl font-bold text-[#6b4423] mb-6" style={{ fontFamily: '"Playfair Display", serif' }}>
+                            Claifit
+                        </span>
+                        <h2 className='text-2xl font-bold text-gray-900 mb-2'>
+                            Create Account
+                        </h2>
+                        <p className='text-gray-500'>
+                            Join us to discover perfect fits.
+                        </p>
+                    </div>
+
+                    {/* Error Message */}
+                    {error && (
+                        <div className='mb-6 p-4 bg-red-50 border border-red-100 text-red-600 rounded-xl text-sm'>
+                            {error}
+                        </div>
+                    )}
+
+                    {/* Form */}
+                    <form onSubmit={handleSubmit} className='space-y-5'>
+                        {/* Full Name */}
+                        <div>
+                            <label className={labelClasses}>Full Name</label>
+                            <input
+                                required
+                                name="name"
+                                value={formData.name}
+                                onChange={handleChange}
+                                type="text"
+                                placeholder="e.g. John Doe"
+                                className={inputClasses}
+                            />
                         </div>
 
-                        {/* Logo Icon */}
-                        <div className='flex justify-center mb-4'>
-                            <div className='w-16 h-16 rounded-full flex items-center justify-center p-2'>
-                                <img src={logoS} alt="StyleEase Logo" className='w-full h-full object-contain' />
-                            </div>
+                        {/* Email */}
+                        <div>
+                            <label className={labelClasses}>Email Address</label>
+                            <input
+                                required
+                                name="email"
+                                value={formData.email}
+                                onChange={handleChange}
+                                type="email"
+                                placeholder="name@example.com"
+                                className={inputClasses}
+                            />
                         </div>
 
-                        {/* Heading */}
-                        <div className='text-center mb-6'>
-                            <h2 className='text-2xl font-bold text-gray-900 mb-1'>
-                                Join the StyleEase
-                            </h2>
-                            <p className='text-gray-600'>
-                                Create your account to get started.
-                            </p>
+                        {/* Phone (Optional) */}
+                        <div>
+                            <label className={labelClasses}>Phone Number <span className="text-gray-400 font-normal">(Optional)</span></label>
+                            <input
+                                name="phone"
+                                value={formData.phone}
+                                onChange={handleChange}
+                                type="tel"
+                                placeholder="+91 98765 43210"
+                                className={inputClasses}
+                            />
                         </div>
 
-                        {/* Error Message */}
-                        {error && (
-                            <div className='mb-6 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm'>
-                                {error}
-                            </div>
-                        )}
-
-                        {/* Form */}
-                        <form onSubmit={handleSubmit} className='space-y-3'>
-                            {/* Full Name */}
-                            <div>
-                                <label className='block text-sm font-medium text-gray-700 mb-2'>
-                                    Full Name
-                                </label>
-                                <div className='relative'>
-                                    <div className='absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none'>
-                                        <svg className='w-5 h-5 text-gray-400' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-                                            <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z' />
-                                        </svg>
-                                    </div>
-                                    <input
-                                        required
-                                        name="name"
-                                        value={formData.name}
-                                        onChange={handleChange}
-                                        type="text"
-                                        placeholder="John Doe"
-                                        className='w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent text-gray-900 placeholder:text-gray-400'
-                                    />
-                                </div>
-                            </div>
-
-                            {/* Email */}
-                            <div>
-                                <label className='block text-sm font-medium text-gray-700 mb-2'>
-                                    Email Address
-                                </label>
-                                <div className='relative'>
-                                    <div className='absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none'>
-                                        <svg className='w-5 h-5 text-gray-400' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-                                            <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z' />
-                                        </svg>
-                                    </div>
-                                    <input
-                                        required
-                                        name="email"
-                                        value={formData.email}
-                                        onChange={handleChange}
-                                        type="email"
-                                        placeholder="john@example.com"
-                                        className='w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent text-gray-900 placeholder:text-gray-400'
-                                    />
-                                </div>
-                            </div>
-
-                            {/* Phone */}
-                            <div>
-                                <label className='block text-sm font-medium text-gray-700 mb-2'>
-                                    Phone Number
-                                </label>
-                                <div className='relative'>
-                                    <div className='absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none'>
-                                        <svg className='w-5 h-5 text-gray-400' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-                                            <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z' />
-                                        </svg>
-                                    </div>
-                                    <input
-                                        name="phone"
-                                        value={formData.phone}
-                                        onChange={handleChange}
-                                        type="tel"
-                                        placeholder="+91 98765 43210"
-                                        className='w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent text-gray-900 placeholder:text-gray-400'
-                                    />
-                                </div>
-                            </div>
-
-                            {/* Password */}
-                            <div>
-                                <label className='block text-sm font-medium text-gray-700 mb-2'>
-                                    Password
-                                </label>
-                                <div className='relative'>
-                                    <div className='absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none'>
-                                        <svg className='w-5 h-5 text-gray-400' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-                                            <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z' />
-                                        </svg>
-                                    </div>
-                                    <input
-                                        required
-                                        name="password"
-                                        value={formData.password}
-                                        onChange={handleChange}
-                                        type={showPassword ? "text" : "password"}
-                                        placeholder="••••••••"
-                                        className='w-full pl-10 pr-10 py-2.5 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent text-gray-900 placeholder:text-gray-400'
-                                    />
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowPassword(!showPassword)}
-                                        className='absolute inset-y-0 right-0 pr-3 flex items-center'
-                                    >
-                                        <svg className='w-5 h-5 text-gray-400 hover:text-gray-600' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-                                            {showPassword ? (
-                                                <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21' />
-                                            ) : (
-                                                <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z' />
-                                            )}
-                                        </svg>
-                                    </button>
-                                </div>
-                            </div>
-
-                            {/* Confirm Password */}
-                            <div>
-                                <label className='block text-sm font-medium text-gray-700 mb-2'>
-                                    Confirm Password
-                                </label>
-                                <div className='relative'>
-                                    <div className='absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none'>
-                                        <svg className='w-5 h-5 text-gray-400' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-                                            <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z' />
-                                        </svg>
-                                    </div>
-                                    <input
-                                        required
-                                        name="confirmPassword"
-                                        value={formData.confirmPassword}
-                                        onChange={handleChange}
-                                        type={showConfirmPassword ? "text" : "password"}
-                                        placeholder="••••••••"
-                                        className='w-full pl-10 pr-10 py-2.5 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent text-gray-900 placeholder:text-gray-400'
-                                    />
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                                        className='absolute inset-y-0 right-0 pr-3 flex items-center'
-                                    >
-                                        <svg className='w-5 h-5 text-gray-400 hover:text-gray-600' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-                                            {showConfirmPassword ? (
-                                                <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21' />
-                                            ) : (
-                                                <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z' />
-                                            )}
-                                        </svg>
-                                    </button>
-                                </div>
-                            </div>
-
-                            {/* Submit Button */}
-                            <button
-                                type="submit"
-                                disabled={loading}
-                                className='w-full py-2.5 bg-[#6b4423] hover:bg-[#573619] text-white font-semibold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm flex items-center justify-center gap-2 mt-4'
-                            >
-                                {loading ? 'Creating Account...' : (
-                                    <>
-                                        Create Account
-                                        <svg className='w-4 h-4' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-                                            <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M13 7l5 5m0 0l-5 5m5-5H6' />
-                                        </svg>
-                                    </>
-                                )}
-                            </button>
-                        </form>
-
-                        {/* Divider */}
-                        <div className='relative my-4'>
-                            <div className='absolute inset-0 flex items-center'>
-                                <div className='w-full border-t border-gray-300'></div>
-                            </div>
-                            <div className='relative flex justify-center text-sm'>
-                                <span className='px-2 bg-white text-gray-500'>or</span>
+                        {/* Password */}
+                        <div>
+                            <label className={labelClasses}>Password</label>
+                            <div className='relative'>
+                                <input
+                                    required
+                                    name="password"
+                                    value={formData.password}
+                                    onChange={handleChange}
+                                    type={showPassword ? "text" : "password"}
+                                    placeholder="••••••••"
+                                    className={inputClasses}
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPassword(!showPassword)}
+                                    className='absolute inset-y-0 right-0 pr-4 flex items-center text-gray-400 hover:text-gray-600'
+                                >
+                                    {showPassword ? (
+                                        <svg className='w-5 h-5' fill='none' stroke='currentColor' viewBox='0 0 24 24'><path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21' /></svg>
+                                    ) : (
+                                        <svg className='w-5 h-5' fill='none' stroke='currentColor' viewBox='0 0 24 24'><path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z' /></svg>
+                                    )}
+                                </button>
                             </div>
                         </div>
 
-                        {/* Sign In Link */}
-                        <div className='text-center'>
-                            <p className='text-sm text-gray-600'>
-                                Already have an account?{' '}
-                                <Link to="/login" className='text-orange-600 hover:text-orange-700 font-semibold'>
-                                    Sign In
-                                </Link>
-                            </p>
+                        {/* Confirm Password */}
+                        <div>
+                            <label className={labelClasses}>Confirm Password</label>
+                            <div className='relative'>
+                                <input
+                                    required
+                                    name="confirmPassword"
+                                    value={formData.confirmPassword}
+                                    onChange={handleChange}
+                                    type={showConfirmPassword ? "text" : "password"}
+                                    placeholder="••••••••"
+                                    className={inputClasses}
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                                    className='absolute inset-y-0 right-0 pr-4 flex items-center text-gray-400 hover:text-gray-600'
+                                >
+                                    {showConfirmPassword ? (
+                                        <svg className='w-5 h-5' fill='none' stroke='currentColor' viewBox='0 0 24 24'><path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21' /></svg>
+                                    ) : (
+                                        <svg className='w-5 h-5' fill='none' stroke='currentColor' viewBox='0 0 24 24'><path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z' /></svg>
+                                    )}
+                                </button>
+                            </div>
                         </div>
+
+                        {/* Submit Button */}
+                        <button
+                            type="submit"
+                            disabled={loading}
+                            className='w-full h-[48px] bg-[#1e3a5f] hover:bg-[#152a45] text-white text-base font-semibold rounded-xl transition-all shadow-lg shadow-blue-900/10 flex items-center justify-center gap-2 mt-2 disabled:opacity-70'
+                        >
+                            {loading ? 'Creating...' : 'Create Account'}
+                        </button>
+                    </form>
+
+                    {/* Divider */}
+                    <div className='relative my-8'>
+                        <div className='absolute inset-0 flex items-center'>
+                            <div className='w-full border-t border-gray-100'></div>
+                        </div>
+                        <div className='relative flex justify-center text-sm'>
+                            <span className='px-4 bg-white lg:bg-[#f5f5f0] text-gray-500'>or</span>
+                        </div>
+                    </div>
+
+                    {/* Google Sign Up */}
+                    <div className='mb-8'>
+                        <GoogleLogin
+                            onSuccess={handleGoogleSuccess}
+                            onError={handleGoogleError}
+                            theme="outline"
+                            shape="pill"
+                            size="large"
+                            text="continue_with"
+                            width="100%"
+                        />
+                    </div>
+
+                    {/* Sign In Link */}
+                    <div className='text-center pb-8'>
+                        <p className='text-base text-gray-600'>
+                            Already have an account?{' '}
+                            <Link to="/login" className='text-[#1e3a5f] font-semibold hover:underline decoration-2 underline-offset-4'>
+                                Log in
+                            </Link>
+                        </p>
                     </div>
                 </div>
             </div>
