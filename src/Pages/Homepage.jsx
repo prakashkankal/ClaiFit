@@ -9,6 +9,7 @@ import gsap from 'gsap';
 import Navbar from '../components/Shared/Navbar';
 import HeroPage from '../components/Customer/HeroPage';
 import SearchBar from '../components/Shared/SearchBar';
+import API_URL from '../config/api';
 
 const Homepage = () => {
   const [tailors, setTailors] = useState([]);
@@ -25,7 +26,7 @@ const Homepage = () => {
     try {
       setLoading(true);
       const limit = 8;
-      const response = await axios.get(`http://localhost:5000/api/tailors?limit=${limit}&skip=${skipValue}`);
+      const response = await axios.get(`${API_URL}/api/tailors?limit=${limit}&skip=${skipValue}`);
 
       const newTailors = response.data.tailors || [];
 

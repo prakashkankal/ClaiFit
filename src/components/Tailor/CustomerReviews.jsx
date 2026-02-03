@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import API_URL from '../../config/api';
 
 const CustomerReviews = ({ tailorId }) => {
     const [reviews, setReviews] = useState([]);
@@ -10,7 +11,7 @@ const CustomerReviews = ({ tailorId }) => {
             if (!tailorId) return;
             try {
                 setLoading(true);
-                const { data } = await axios.get(`http://localhost:5000/api/tailors/${tailorId}`);
+                const { data } = await axios.get(`${API_URL}/api/tailors/${tailorId}`);
                 setReviews(data.reviews || []);
             } catch (err) {
                 console.error('Error fetching reviews:', err);

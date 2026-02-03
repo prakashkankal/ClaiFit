@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import DashboardSidebar from '../../components/Tailor/DashboardSidebar';
+import API_URL from '../../config/api';
 
 const OrderDetailsPage = () => {
     const { orderId } = useParams();
@@ -40,7 +41,7 @@ const OrderDetailsPage = () => {
         const fetchOrderDetails = async () => {
             try {
                 setLoading(true);
-                const { data } = await axios.get(`http://localhost:5000/api/orders/details/${orderId}`);
+                const { data } = await axios.get(`${API_URL}/api/orders/details/${orderId}`);
                 setOrder(data.order);
                 setNotes(data.order.notes || '');
                 setError(null);
@@ -62,12 +63,12 @@ const OrderDetailsPage = () => {
 
         try {
             setUpdatingStatus(true);
-            await axios.put(`http://localhost:5000/api/orders/${order._id}/status`, {
+            await axios.put(`${API_URL}/api/orders/${order._id}/status`, {
                 status: newStatus
             });
 
             // Refresh order data
-            const { data } = await axios.get(`http://localhost:5000/api/orders/details/${orderId}`);
+            const { data } = await axios.get(`${API_URL}/api/orders/details/${orderId}`);
             setOrder(data.order);
         } catch (err) {
             console.error('Error updating status:', err);
@@ -81,12 +82,12 @@ const OrderDetailsPage = () => {
         if (!order) return;
 
         try {
-            await axios.put(`http://localhost:5000/api/orders/${order._id}/notes`, {
+            await axios.put(`${API_URL}/api/orders/${order._id}/notes`, {
                 notes: notes
             });
 
             // Refresh order data
-            const { data } = await axios.get(`http://localhost:5000/api/orders/details/${orderId}`);
+            const { data } = await axios.get(`${API_URL}/api/orders/details/${orderId}`);
             setOrder(data.order);
             setEditingNotes(false);
         } catch (err) {

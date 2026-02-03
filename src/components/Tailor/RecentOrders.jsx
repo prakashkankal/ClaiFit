@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import axios from 'axios'
+import API_URL from '../../config/api'
 
 const RecentOrders = ({ tailorId }) => {
     const navigate = useNavigate();
@@ -15,7 +16,7 @@ const RecentOrders = ({ tailorId }) => {
 
         try {
             setLoading(true);
-            const { data } = await axios.get(`http://localhost:5000/api/orders/${tailorId}`);
+            const { data } = await axios.get(`${API_URL}/api/orders/${tailorId}`);
             const allOrders = data.orders || [];
 
             // Get today's date (ignore time component)
@@ -102,7 +103,7 @@ const RecentOrders = ({ tailorId }) => {
         try {
             setUpdatingOrder(orderId);
 
-            await axios.put(`http://localhost:5000/api/orders/${orderId}/status`, {
+            await axios.put(`${API_URL}/api/orders/${orderId}/status`, {
                 status: newStatus
             });
 

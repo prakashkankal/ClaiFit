@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import DashboardSidebar from '../../components/Tailor/DashboardSidebar'
+import API_URL from '../../config/api'
 
 const TailorOrders = () => {
     const navigate = useNavigate();
@@ -37,7 +38,7 @@ const TailorOrders = () => {
             try {
                 setLoading(true);
                 setError(null);
-                const response = await fetch(`http://localhost:5000/api/orders/${tailorData._id}`);
+                const response = await fetch(`${API_URL}/api/orders/${tailorData._id}`);
 
                 if (!response.ok) {
                     throw new Error('Failed to fetch orders');
@@ -69,7 +70,7 @@ const TailorOrders = () => {
         try {
             setUpdatingOrder(orderId);
 
-            const response = await fetch(`http://localhost:5000/api/orders/${orderId}/status`, {
+            const response = await fetch(`${API_URL}/api/orders/${orderId}/status`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
@@ -83,7 +84,7 @@ const TailorOrders = () => {
             }
 
             // Refresh orders list
-            const ordersResponse = await fetch(`http://localhost:5000/api/orders/${tailorData._id}`);
+            const ordersResponse = await fetch(`${API_URL}/api/orders/${tailorData._id}`);
             if (ordersResponse.ok) {
                 const data = await ordersResponse.json();
                 setOrders(data.orders || []);

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import DashboardSidebar from '../../components/Tailor/DashboardSidebar';
 import axios from 'axios';
+import API_URL from '../../config/api';
 
 const NewOrder = () => {
     const navigate = useNavigate();
@@ -63,7 +64,7 @@ const NewOrder = () => {
 
     const fetchPresets = async () => {
         try {
-            const { data } = await axios.get(`http://localhost:5000/api/presets/${tailorData._id}`);
+            const { data } = await axios.get(`${API_URL}/api/presets/${tailorData._id}`);
             setPresets(data.presets);
         } catch (error) {
             console.error('Error fetching presets:', error);
@@ -228,7 +229,7 @@ const NewOrder = () => {
 
             console.log('Creating multi-item order:', orderData);
 
-            const response = await axios.post('http://localhost:5000/api/orders', orderData);
+            const response = await axios.post(`${API_URL}/api/orders`, orderData);
 
             console.log('Order created:', response.data);
             setSuccess('Order created successfully!');

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import TailorBottom from './tailor_bottom';
+import API_URL from '../../config/api';
 
 const TailorDetailPage = () => {
     const { id } = useParams();
@@ -23,7 +24,7 @@ const TailorDetailPage = () => {
         const fetchTailor = async () => {
             try {
                 setLoading(true);
-                const response = await fetch(`http://localhost:5000/api/tailors/${id}`);
+                const response = await fetch(`${API_URL}/api/tailors/${id}`);
 
                 if (!response.ok) {
                     throw new Error('Tailor not found');
@@ -131,7 +132,7 @@ const TailorDetailPage = () => {
             setReviewSubmitting(true);
             const user = JSON.parse(userInfo);
 
-            const response = await fetch(`http://localhost:5000/api/tailors/${id}/reviews`, {
+            const response = await fetch(`${API_URL}/api/tailors/${id}/reviews`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

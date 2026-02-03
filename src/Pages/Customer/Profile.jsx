@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import API_URL from '../../config/api'
 
 const Profile = () => {
     const navigate = useNavigate();
@@ -63,7 +64,7 @@ const Profile = () => {
 
     const updateProfileAPI = async (updateData) => {
         try {
-            const response = await fetch('http://localhost:5000/api/users/profile', {
+            const response = await fetch(`${API_URL}/api/users/profile`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',

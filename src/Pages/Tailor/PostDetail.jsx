@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import API_URL from '../../config/api';
 
 const PostDetail = () => {
     const location = useLocation();
@@ -44,7 +45,7 @@ const PostDetail = () => {
                     Authorization: `Bearer ${userInfo.token}`,
                 },
             };
-            await axios.delete(`http://localhost:5000/api/posts/${post.id || post._id}`, config);
+            await axios.delete(`${API_URL}/api/posts/${post.id || post._id}`, config);
 
             setIsLoading(false);
             setShowDeleteModal(false);
@@ -79,7 +80,7 @@ const PostDetail = () => {
                         Authorization: `Bearer ${userInfo.token}`,
                     },
                 };
-                const uploadRes = await axios.post('http://localhost:5000/api/posts/upload', formData, uploadConfig);
+                const uploadRes = await axios.post(`${API_URL}/api/posts/upload`, formData, uploadConfig);
                 imageUrl = uploadRes.data;
             }
 
@@ -99,7 +100,7 @@ const PostDetail = () => {
                 },
             };
 
-            const { data } = await axios.put(`http://localhost:5000/api/posts/${post.id || post._id}`, updateData, config);
+            const { data } = await axios.put(`${API_URL}/api/posts/${post.id || post._id}`, updateData, config);
 
             // Update local state
             setPost({ ...data, id: data._id });

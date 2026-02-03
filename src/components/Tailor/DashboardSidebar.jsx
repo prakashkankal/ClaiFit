@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import axios from 'axios'
+import API_URL from '../../config/api'
 
 const DashboardSidebar = ({ tailorData, onLogout }) => {
     const location = useLocation();
@@ -13,7 +14,7 @@ const DashboardSidebar = ({ tailorData, onLogout }) => {
             if (!tailorData?._id) return;
 
             try {
-                const { data } = await axios.get(`http://localhost:5000/api/orders/${tailorData._id}`);
+                const { data } = await axios.get(`${API_URL}/api/orders/${tailorData._id}`);
                 const orders = data.orders || [];
                 const pending = orders.filter(order => order.status !== 'Order Completed').length;
                 setPendingOrdersCount(pending);

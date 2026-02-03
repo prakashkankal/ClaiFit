@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import DashboardSidebar from '../../components/Tailor/DashboardSidebar'
+import API_URL from '../../config/api'
 
 const Orders = () => {
     const navigate = useNavigate();
@@ -36,7 +37,7 @@ const Orders = () => {
             try {
                 setLoading(true);
                 setError(null);
-                const response = await fetch(`http://localhost:5000/api/orders/${tailorData._id}`);
+                const response = await fetch(`${API_URL}/api/orders/${tailorData._id}`);
 
                 if (!response.ok) {
                     throw new Error('Failed to fetch orders');

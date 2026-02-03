@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import API_URL from '../../config/api';
 
 const ProfileModal = ({ isOpen, onClose, tailorData, onUpdate }) => {
     const [imagePreview, setImagePreview] = useState(null);
@@ -101,14 +102,14 @@ const ProfileModal = ({ isOpen, onClose, tailorData, onUpdate }) => {
         try {
             // First, upload image if changed
             if (imageChanged && imagePreview) {
-                await axios.put('http://localhost:5000/api/tailors/upload-image', {
+                await axios.put(`${API_URL}/api/tailors/upload-image`, {
                     email: tailorData.email,
                     shopImage: imagePreview
                 });
             }
 
             // Then, update profile
-            const { data } = await axios.put('http://localhost:5000/api/tailors/update-profile', {
+            const { data } = await axios.put(`${API_URL}/api/tailors/update-profile`, {
                 email: tailorData.email,
                 name: profileForm.name,
                 shopName: profileForm.shopName,

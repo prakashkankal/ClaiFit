@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../../components/Shared/Navbar';
+import API_URL from '../../config/api';
 
 const CustomerOrders = () => {
     const navigate = useNavigate();
@@ -28,7 +29,7 @@ const CustomerOrders = () => {
     const fetchOrders = async (userId) => {
         try {
             setLoading(true);
-            const response = await fetch(`http://localhost:5000/api/orders/my-orders/${userId}`);
+            const response = await fetch(`${API_URL}/api/orders/my-orders/${userId}`);
 
             if (!response.ok) {
                 throw new Error('Failed to fetch orders');

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import axios from 'axios'
+import API_URL from '../../config/api'
 
 const DashboardStats = ({ tailorId }) => {
     const [stats, setStats] = useState({
@@ -16,7 +17,7 @@ const DashboardStats = ({ tailorId }) => {
 
             try {
                 setLoading(true);
-                const { data } = await axios.get(`http://localhost:5000/api/orders/${tailorId}`);
+                const { data } = await axios.get(`${API_URL}/api/orders/${tailorId}`);
                 const orders = data.orders || [];
 
                 // Get today's date (start and end of day)

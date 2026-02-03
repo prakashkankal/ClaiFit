@@ -4,6 +4,7 @@ import DashboardSidebar from '../../components/Tailor/DashboardSidebar'
 import ProfileModal from '../../components/Customer/ProfileModal'
 import { calculateProfileCompletion } from '../../utils/profileCompletion'
 import axios from 'axios'
+import API_URL from '../../config/api'
 
 const TailorProfile = () => {
     const navigate = useNavigate();
@@ -58,7 +59,7 @@ const TailorProfile = () => {
                     Authorization: `Bearer ${userInfo.token}`,
                 },
             };
-            const { data } = await axios.get('http://localhost:5000/api/posts/my-posts', config);
+            const { data } = await axios.get(`${API_URL}/api/posts/my-posts`, config);
             setPortfolioItems(data);
         } catch (error) {
             console.error('Error fetching posts:', error);
@@ -136,7 +137,7 @@ const TailorProfile = () => {
             const formData = new FormData();
             formData.append('image', postForm.imageFile);
 
-            const uploadRes = await axios.post('http://localhost:5000/api/posts/upload', formData, config);
+            const uploadRes = await axios.post(`${API_URL}/api/posts/upload`, formData, config);
             const imageUrl = uploadRes.data;
 
             // 2. Create Post
@@ -155,7 +156,7 @@ const TailorProfile = () => {
                 },
             };
 
-            await axios.post('http://localhost:5000/api/posts', postData, jsonConfig);
+            await axios.post(`${API_URL}/api/posts`, postData, jsonConfig);
 
             // Success
             setIsLoading(false);

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import TailorProfileCard from './TailorProfileCard';
+import API_URL from '../../config/api';
 
 const TailorGrid = () => {
     const [tailors, setTailors] = useState([]);
@@ -32,7 +33,7 @@ const TailorGrid = () => {
             setError(null);
 
             const response = await fetch(
-                `http://localhost:5000/api/tailors?limit=${limit}&skip=${currentSkip}`
+                `${API_URL}/api/tailors?limit=${limit}&skip=${currentSkip}`
             );
 
             if (!response.ok) {

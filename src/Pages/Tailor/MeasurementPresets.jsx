@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import DashboardSidebar from '../../components/Tailor/DashboardSidebar';
 import axios from 'axios';
+import API_URL from '../../config/api';
 
 const MeasurementPresets = () => {
     const navigate = useNavigate();
@@ -53,7 +54,7 @@ const MeasurementPresets = () => {
     const fetchPresets = async () => {
         try {
             setLoading(true);
-            const { data } = await axios.get(`http://localhost:5000/api/presets/${tailorData._id}`);
+            const { data } = await axios.get(`${API_URL}/api/presets/${tailorData._id}`);
             setPresets(data.presets);
         } catch (error) {
             console.error('Error fetching presets:', error);
@@ -151,14 +152,14 @@ const MeasurementPresets = () => {
 
             if (editingPreset) {
                 // Update existing
-                await axios.put(`http://localhost:5000/api/presets/${editingPreset._id}`, {
+                await axios.put(`${API_URL}/api/presets/${editingPreset._id}`, {
                     name: formData.name,
                     description: formData.description,
                     fields: validFields
                 });
             } else {
                 // Create new
-                await axios.post('http://localhost:5000/api/presets', {
+                await axios.post(`${API_URL}/api/presets`, {
                     tailorId: tailorData._id,
                     name: formData.name,
                     description: formData.description,
@@ -176,7 +177,7 @@ const MeasurementPresets = () => {
 
     const handleDeletePreset = async () => {
         try {
-            await axios.delete(`http://localhost:5000/api/presets/${selectedPreset._id}`);
+            await axios.delete(`${API_URL}/api/presets/${selectedPreset._id}`);
             setShowDeleteConfirm(false);
             setShowActionSheet(false);
             fetchPresets();
