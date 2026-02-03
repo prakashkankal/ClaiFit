@@ -48,7 +48,7 @@ if (process.env.NODE_ENV === 'production') {
     // Adjust this path if your build folder is elsewhere
     app.use(express.static(path.join(__dirname, '../dist')));
 
-    app.get('*', (req, res) => {
+    app.get(/.*/, (req, res) => {
         res.sendFile(path.resolve(__dirname, '../dist', 'index.html'));
     });
 } else {
