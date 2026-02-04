@@ -22,6 +22,29 @@ const TailorDetailPage = () => {
     const [editingReviewId, setEditingReviewId] = useState(null);
     const [menuOpenReviewId, setMenuOpenReviewId] = useState(null);
     const [showAllReviews, setShowAllReviews] = useState(false);
+    const [isLiked, setIsLiked] = useState(false);
+
+    const handleShareProfile = async () => {
+        if (navigator.share) {
+            try {
+                await navigator.share({
+                    title: tailor?.shopName || 'Tailor Profile',
+                    text: `Check out ${tailor?.shopName} on KStitch!`,
+                    url: window.location.href
+                });
+            } catch (err) {
+                console.log('Error sharing:', err);
+            }
+        } else {
+            const text = encodeURIComponent(`Check out ${tailor?.shopName} on KStitch! ${window.location.href}`);
+            window.open(`https://wa.me/?text=${text}`, '_blank');
+        }
+    };
+
+    const handleLikeProfile = () => {
+        setIsLiked(!isLiked);
+        // Here you would typically call an API to persist the like
+    };
 
     // Close menu when clicking outside
     useEffect(() => {
@@ -316,18 +339,6 @@ const TailorDetailPage = () => {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" />
                     </svg>
                 </button>
-                <div className="flex gap-3 pointer-events-auto">
-                    <button className="bg-white/90 flex items-center justify-center align-center backdrop-blur-sm p-2 rounded-full shadow-sm hover:bg-white transition-colors">
-                        <svg className="w-5 h-5 text-gray-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
-                        </svg>
-                    </button>
-                    <button className="bg-white/90 flex items-center justify-center align-center backdrop-blur-sm p-2 rounded-full shadow-sm hover:bg-white transition-colors">
-                        <svg className="w-5 h-5 text-gray-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                        </svg>
-                    </button>
-                </div>
             </div>
 
             {/* SECONDARY NAVIGATION - Desktop Only */}
@@ -416,9 +427,20 @@ const TailorDetailPage = () => {
                                 <button onClick={() => scrollToSection('contact')} className="flex-1 md:flex-none bg-[#6b4423] text-white px-6 py-2.5 rounded-lg font-medium hover:bg-[#573619] transition-colors shadow-sm active:scale-95 transform">
                                     Contact Now
                                 </button>
-                                <button className="p-2.5 border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-600 transition-colors">
-                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <button
+                                    onClick={handleLikeProfile}
+                                    className={`p-2.5 border rounded-lg transition-colors ${isLiked ? 'bg-red-50 border-red-200 text-red-500' : 'border-gray-300 hover:bg-gray-50 text-gray-600'}`}
+                                >
+                                    <svg className={`w-5 h-5 ${isLiked ? 'fill-current' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                                    </svg>
+                                </button>
+                                <button
+                                    onClick={handleShareProfile}
+                                    className="p-2.5 border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-600 transition-colors"
+                                >
+                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
                                     </svg>
                                 </button>
                             </div>
@@ -433,57 +455,71 @@ const TailorDetailPage = () => {
                     {/* Main Content Area - Full Width */}
                     <div className="w-full space-y-8 md:space-y-12">
                         {/* Introduction */}
-                        <section>
-                            <h2 className="text-2xl font-bold text-gray-900 mb-4">About {tailor.name}</h2>
-                            <p className="text-slate-700 leading-relaxed mb-4">
+                        <section className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 md:p-8">
+                            <h2 className="text-2xl font-bold text-gray-900 mb-4 bg-linear-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">About {tailor.name}</h2>
+                            <p className="text-slate-600 leading-relaxed mb-8 text-base md:text-lg">
                                 {tailor.shopDescription || `Professional tailor with ${tailor.experience} years of experience specializing in ${tailor.specialization} tailoring.`}
                             </p>
-                            <div className="grid grid-cols-2 gap-3 text-sm">
-                                <div className="flex items-start gap-2">
-                                    <svg className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                    </svg>
-                                    <span className="text-slate-700">On-time delivery</span>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div className="flex items-center gap-3 p-3 rounded-xl bg-green-50/50 border border-green-100 hover:border-green-200 transition-colors">
+                                    <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center shrink-0">
+                                        <svg className="w-5 h-5 text-green-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
+                                    </div>
+                                    <span className="font-medium text-slate-700">On-time delivery</span>
                                 </div>
-                                <div className="flex items-start gap-2">
-                                    <svg className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                    </svg>
-                                    <span className="text-slate-700">Perfect fitting guarantee</span>
+                                <div className="flex items-center gap-3 p-3 rounded-xl bg-purple-50/50 border border-purple-100 hover:border-purple-200 transition-colors">
+                                    <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center shrink-0">
+                                        <svg className="w-5 h-5 text-purple-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
+                                    </div>
+                                    <span className="font-medium text-slate-700">Perfect fitting guarantee</span>
                                 </div>
-                                <div className="flex items-start gap-2">
-                                    <svg className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                    </svg>
-                                    <span className="text-slate-700">Premium finishing</span>
+                                <div className="flex items-center gap-3 p-3 rounded-xl bg-amber-50/50 border border-amber-100 hover:border-amber-200 transition-colors">
+                                    <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center shrink-0">
+                                        <svg className="w-5 h-5 text-amber-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+                                        </svg>
+                                    </div>
+                                    <span className="font-medium text-slate-700">Premium finishing</span>
                                 </div>
-                                <div className="flex items-start gap-2">
-                                    <svg className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                    </svg>
-                                    <span className="text-slate-700">{tailor.experience}+ years experience</span>
+                                <div className="flex items-center gap-3 p-3 rounded-xl bg-blue-50/50 border border-blue-100 hover:border-blue-200 transition-colors">
+                                    <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center shrink-0">
+                                        <svg className="w-5 h-5 text-blue-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                                        </svg>
+                                    </div>
+                                    <span className="font-medium text-slate-700">{tailor.experience}+ years experience</span>
                                 </div>
                             </div>
                         </section>
+
 
                         <hr className="border-slate-200" />
 
                         {/* Services */}
                         <section id="services">
-                            <h2 className="text-2xl font-bold text-gray-900 mb-6">Services Offered</h2>
-                            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                            <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-2">
+                                <span className="w-1.5 h-8 bg-[#6b4423] rounded-full block"></span>
+                                Services Offered
+                            </h2>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                                 {(tailor.services && tailor.services.length > 0 ? tailor.services : ['Custom Tailoring', 'Alterations', 'Repairs']).map((service, idx) => (
-                                    <div key={idx} className="p-4 border border-slate-200 rounded-lg hover:border-[#6b4423] hover:shadow-sm transition-all">
-                                        <div className="flex items-center gap-3">
-                                            <svg className="w-5 h-5 text-[#6b4423]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                    <div key={idx} className="group p-5 bg-white border border-slate-200 rounded-xl hover:border-[#6b4423] hover:shadow-md transition-all duration-300 flex items-center gap-4">
+                                        <div className="w-12 h-12 rounded-lg bg-[#6b4423]/5 group-hover:bg-[#6b4423]/10 flex items-center justify-center transition-colors">
+                                            <svg className="w-6 h-6 text-[#6b4423]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M5 13l4 4L19 7" />
                                             </svg>
-                                            <span className="text-sm font-medium text-slate-900">{service}</span>
                                         </div>
+                                        <span className="font-semibold text-gray-800 group-hover:text-[#6b4423] transition-colors">{service}</span>
                                     </div>
                                 ))}
                             </div>
                         </section>
+
 
                         <hr className="border-slate-200" />
 
@@ -492,12 +528,12 @@ const TailorDetailPage = () => {
                             <h2 className="text-2xl font-bold text-gray-900 mb-6">Portfolio</h2>
                             {portfolioImages.length > 0 ? (
                                 <>
-                                    <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
+                                    <div className="flex gap-2 mb-6 overflow-x-auto pb-2 flex-nowrap no-scrollbar -mx-4 px-4 md:mx-0 md:px-0">
                                         {['All', 'Shirts', 'Suits', 'Blouses', 'Dresses', 'Ethnic'].map((filter) => (
                                             <button
                                                 key={filter}
                                                 onClick={() => setActiveFilter(filter)}
-                                                className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${activeFilter === filter
+                                                className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap shrink-0 transition-colors ${activeFilter === filter
                                                     ? 'bg-[#6b4423] text-white'
                                                     : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
                                                     }`}
@@ -511,8 +547,12 @@ const TailorDetailPage = () => {
                                             <div
                                                 key={idx}
                                                 onClick={() => {
-                                                    setLightboxIndex(idx);
-                                                    setShowLightbox(true);
+                                                    navigate(`/tailor/${id}/posts`, {
+                                                        state: {
+                                                            posts: filteredPortfolio,
+                                                            initialIndex: idx
+                                                        }
+                                                    });
                                                 }}
                                                 className="aspect-square rounded-lg overflow-hidden cursor-pointer group relative"
                                             >
@@ -730,12 +770,12 @@ const TailorDetailPage = () => {
                                 </div>
                             </div>
                         </section>
-                    </div>
+                    </div >
 
-                </div>
+                </div >
 
                 {/* Contact Section */}
-                <section id="contact" className="mt-12 pt-12 border-t border-slate-200">
+                < section id="contact" className="mt-12 pt-12 border-t border-slate-200" >
                     <h2 className="text-2xl font-bold text-gray-900 mb-6">Contact Information</h2>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                         <a href={`tel:${tailor.phone}`} className="flex items-center gap-3 p-4 border border-slate-200 rounded-lg hover:border-[#6b4423] transition-colors">
@@ -766,11 +806,11 @@ const TailorDetailPage = () => {
                             </div>
                         </a>
                     </div>
-                </section>
-            </div>
+                </section >
+            </div >
 
             {/* Floating WhatsApp Button */}
-            <TailorBottom
+            < TailorBottom
                 tailor={tailor}
                 showLightbox={showLightbox}
                 setShowLightbox={setShowLightbox}
@@ -779,44 +819,46 @@ const TailorDetailPage = () => {
                 setLightboxIndex={setLightboxIndex}
             />
             {/* Login Required Modal */}
-            {showLoginModal && (
-                <div className="fixed inset-0 z-100 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-                    {/* Dimmed Background */}
-                    <div
-                        className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
-                        onClick={() => setShowLoginModal(false)}
-                    ></div>
+            {
+                showLoginModal && (
+                    <div className="fixed inset-0 z-100 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+                        {/* Dimmed Background */}
+                        <div
+                            className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
+                            onClick={() => setShowLoginModal(false)}
+                        ></div>
 
-                    {/* Modal Content */}
-                    <div className="relative w-full md:w-[480px] bg-white rounded-t-2xl md:rounded-2xl p-6 shadow-2xl transform transition-all animate-in slide-in-from-bottom duration-300">
-                        <div className="text-center mb-6">
-                            <div className="w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                                <svg className="w-6 h-6 text-amber-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                                </svg>
+                        {/* Modal Content */}
+                        <div className="relative w-full md:w-[480px] bg-white rounded-t-2xl md:rounded-2xl p-6 shadow-2xl transform transition-all animate-in slide-in-from-bottom duration-300">
+                            <div className="text-center mb-6">
+                                <div className="w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                                    <svg className="w-6 h-6 text-amber-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                                    </svg>
+                                </div>
+                                <h3 className="text-xl font-bold text-gray-900 mb-2">Login Required</h3>
+                                <p className="text-gray-500">Please log in to write a review for this tailor.</p>
                             </div>
-                            <h3 className="text-xl font-bold text-gray-900 mb-2">Login Required</h3>
-                            <p className="text-gray-500">Please log in to write a review for this tailor.</p>
-                        </div>
 
-                        <div className="space-y-3">
-                            <button
-                                onClick={() => navigate('/login')}
-                                className="w-full py-3.5 bg-[#6b4423] text-white rounded-xl font-semibold text-base hover:bg-[#573619] active:scale-[0.98] transition-transform shadow-sm"
-                            >
-                                Login / Sign up
-                            </button>
-                            <button
-                                onClick={() => setShowLoginModal(false)}
-                                className="w-full py-3.5 bg-white border border-gray-200 text-gray-700 rounded-xl font-semibold text-base hover:bg-gray-50 active:scale-[0.98] transition-transform"
-                            >
-                                Cancel
-                            </button>
+                            <div className="space-y-3">
+                                <button
+                                    onClick={() => navigate('/login')}
+                                    className="w-full py-3.5 bg-[#6b4423] text-white rounded-xl font-semibold text-base hover:bg-[#573619] active:scale-[0.98] transition-transform shadow-sm"
+                                >
+                                    Login / Sign up
+                                </button>
+                                <button
+                                    onClick={() => setShowLoginModal(false)}
+                                    className="w-full py-3.5 bg-white border border-gray-200 text-gray-700 rounded-xl font-semibold text-base hover:bg-gray-50 active:scale-[0.98] transition-transform"
+                                >
+                                    Cancel
+                                </button>
+                            </div>
                         </div>
                     </div>
-                </div>
-            )}
-        </div>
+                )
+            }
+        </div >
     );
 };
 export default TailorDetailPage;

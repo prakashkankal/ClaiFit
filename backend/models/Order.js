@@ -138,6 +138,12 @@ const orderSchema = new mongoose.Schema({
         required: false,
         default: false
     }
+    ,
+    invoiceId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Invoice',
+        required: false
+    }
 }, {
     timestamps: true
 });

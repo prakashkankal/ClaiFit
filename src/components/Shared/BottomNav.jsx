@@ -23,7 +23,8 @@ const BottomNav = () => {
         location.pathname.startsWith('/dashboard') ||
         location.pathname.startsWith('/orders') ||
         location.pathname === '/new-order' ||
-        /^\/tailor\/[^/]+$/.test(location.pathname);
+        /^\/tailor\/[^/]+$/.test(location.pathname) ||
+        /^\/tailor\/[^/]+\/posts$/.test(location.pathname);
 
     const isAuthPage = ['/login', '/signup', '/register'].some(path => location.pathname.startsWith(path));
 

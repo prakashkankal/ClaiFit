@@ -11,6 +11,12 @@ const NewOrder = () => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
+    const [createdOrder, setCreatedOrder] = useState(null);
+    const [invoiceInfo, setInvoiceInfo] = useState(null);
+    const [invoiceLink, setInvoiceLink] = useState('');
+    const [whatsappLink, setWhatsappLink] = useState('');
+    const [showInvoiceModal, setShowInvoiceModal] = useState(false);
+    const [contactPickerAvailable, setContactPickerAvailable] = useState(false);
 
     // Customer Autocomplete State
     const [previousCustomers, setPreviousCustomers] = useState([]);
@@ -64,6 +70,13 @@ const NewOrder = () => {
             navigate('/login');
         }
     }, [navigate]);
+
+    useEffect(() => {
+        setContactPickerAvailable(
+            typeof navigator !== 'undefined' &&
+            !!navigator?.contacts?.select
+        );
+    }, []);
 
     // Fetch presets and customers when tailor data is available
     useEffect(() => {
@@ -220,6 +233,73 @@ const NewOrder = () => {
         fetchCustomerHistory(customer.phone);
     };
 
+    const handlePickContact = async () => {
+        // Fallback check
+        if (!contactPickerAvailable) {
+            setError('Contact access not supported on this device. Please enter number manually.');
+            return;
+        }
+
+        try {
+            // Request name and tel fields
+            const props = ['name', 'tel'];
+            const opts = { multiple: false };
+            const contacts = await navigator.contacts.select(props, opts);
+
+            if (!contacts || contacts.length === 0) return;
+
+            const contact = contacts[0];
+
+            // Extract Name
+            const name = Array.isArray(contact.name) && contact.name.length > 0
+                ? contact.name[0]
+                : (typeof contact.name === 'string' ? contact.name : '');
+
+            // Extract Phone Number
+            const phoneNumbers = Array.isArray(contact.tel) ? contact.tel : [contact.tel];
+
+            if (!phoneNumbers || phoneNumbers.length === 0 || !phoneNumbers[0]) {
+                setError('Selected contact does not have a phone number.');
+                return;
+            }
+
+            // Pick the first number as per requirement
+            const tel = phoneNumbers[0];
+
+            // Sanitize: remove all non-digits
+            const digitsOnly = (tel || '').replace(/\D/g, '');
+
+            // Normalize: take last 10 digits (common for regional formats)
+            const normalizedPhone = digitsOnly.length > 10 ? digitsOnly.slice(-10) : digitsOnly;
+
+            if (normalizedPhone.length < 10) {
+                setError('Selected contact has an invalid phone number format.');
+                return;
+            }
+
+            setCustomerInfo(prev => ({
+                ...prev,
+                customerName: name || prev.customerName,
+                customerPhone: normalizedPhone
+            }));
+
+            // Sync with history if it's a known number
+            if (normalizedPhone) {
+                fetchCustomerHistory(normalizedPhone);
+            }
+
+            setSuccess('Contact details filled successfully!');
+            setTimeout(() => setSuccess(''), 3000);
+
+        } catch (err) {
+            // Handle cancellation gracefully
+            if (err?.name === 'AbortError') return;
+
+            console.error('Contact picker error:', err);
+            setError('Unable to access contacts. Please ensure you have granted permission.');
+        }
+    };
+
     const handleAutofillMeasurements = (index) => {
         const data = autofillAvailable[index];
         if (!data) return;
@@ -340,6 +420,13 @@ const NewOrder = () => {
             return;
         }
 
+        const totalAmount = calculateGrandTotal();
+        const advanceAmount = parseFloat(customerInfo.advancePayment) || 0;
+        if (advanceAmount > totalAmount) {
+            setError('Advance payment cannot be greater than total amount');
+            return;
+        }
+
         // Validate order items
         for (let i = 0; i < orderItems.length; i++) {
             const item = orderItems[i];
@@ -389,15 +476,17 @@ const NewOrder = () => {
             const response = await axios.post(`${API_URL}/api/orders`, orderData);
 
             console.log('Order created:', response.data);
+            setCreatedOrder(response.data);
+            setInvoiceInfo(response.data?.invoice || null);
+            setInvoiceLink(response.data?.invoiceLink || response.data?.invoice?.link || '');
+            setWhatsappLink(response.data?.whatsappLink || '');
             setSuccess('Order created successfully!');
+            setShowInvoiceModal(true);
 
             // Clear draft
             localStorage.removeItem(`draft_order_${tailorData._id}`);
 
-            // Reset form
-            setTimeout(() => {
-                navigate('/dashboard');
-            }, 1500);
+            // Keep form state for viewing invoice / resending
 
         } catch (err) {
             console.error('Error creating order:', err);
@@ -450,11 +539,6 @@ const NewOrder = () => {
                                 {error}
                             </div>
                         )}
-                        {success && (
-                            <div className="mb-6 p-4 bg-emerald-50 border-2 border-emerald-200 rounded-xl text-emerald-700">
-                                {success}
-                            </div>
-                        )}
 
                         {/* Customer Information */}
                         <div className="bg-white border-2 border-dashed border-gray-300 rounded-2xl p-6 mb-6">
@@ -478,7 +562,7 @@ const NewOrder = () => {
                                     />
                                     {/* Suggestions Dropdown */}
                                     {showSuggestions && suggestions.length > 0 && (
-                                        <ul className="absolute z-10 w-full bg-white border border-slate-200 rounded-lg shadow-lg mt-1 max-h-48 overflow-y-auto">
+                                        <ul className="relative z-10 w-full bg-white border border-slate-200 rounded-lg shadow-lg mt-2 max-h-48 overflow-y-auto">
                                             {suggestions.map((customer, index) => (
                                                 <li
                                                     key={index}
@@ -496,17 +580,39 @@ const NewOrder = () => {
                                     <label htmlFor="customerPhone" className="block text-sm font-medium text-slate-700 mb-2">
                                         Mobile Number <span className="text-red-500">*</span>
                                     </label>
-                                    <input
-                                        type="tel"
-                                        id="customerPhone"
-                                        name="customerPhone"
-                                        value={customerInfo.customerPhone}
-                                        onChange={handleCustomerInfoChange}
-                                        required
-                                        autoComplete="off"
-                                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#6b4423] focus:border-transparent"
-                                        placeholder="10-digit mobile number"
-                                    />
+                                    <div className="flex items-stretch group shadow-sm rounded-lg overflow-hidden">
+                                        <input
+                                            type="tel"
+                                            id="customerPhone"
+                                            name="customerPhone"
+                                            value={customerInfo.customerPhone}
+                                            onChange={handleCustomerInfoChange}
+                                            required
+                                            autoComplete="tel"
+                                            className="flex-1 min-w-0 px-4 py-2.5 bg-slate-50 border border-slate-300 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-[#6b4423] focus:border-transparent transition-all z-10"
+                                            placeholder="10-digit mobile number"
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={handlePickContact}
+                                            title={contactPickerAvailable ? 'Pick from contacts' : 'Contact access not supported on this device'}
+                                            className={`shrink-0 px-3 flex items-center justify-center gap-2 border border-l-0 border-slate-300 transition-all duration-200 ${contactPickerAvailable
+                                                ? 'bg-white text-blue-600 hover:bg-blue-50 active:bg-blue-100'
+                                                : 'bg-slate-50 text-slate-400 cursor-pointer'
+                                                }`}
+                                        >
+                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.306 0 2.417.835 2.83 2M9 14a3.001 3.001 0 00-2.83 2M15 11h3m-3 4h2" />
+                                            </svg>
+                                            <span className="hidden sm:inline text-sm font-semibold tracking-tight">Contacts</span>
+                                        </button>
+                                    </div>
+                                    {!contactPickerAvailable && (
+                                        <p className="mt-1.5 text-xs text-slate-400 flex items-center gap-1">
+                                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                            Contact list access is mobile-only. Enter manually on desktop.
+                                        </p>
+                                    )}
                                 </div>
                                 <div>
                                     <label htmlFor="customerEmail" className="block text-sm font-medium text-slate-700 mb-2">
@@ -789,16 +895,9 @@ const NewOrder = () => {
                         {/* Submit Buttons */}
                         <div className="fixed bottom-16 left-0 right-0 p-4 bg-white border-t border-gray-200 z-30 flex gap-3 md:static md:bg-transparent md:border-0 md:p-0 md:justify-end">
                             <button
-                                type="button"
-                                onClick={() => navigate('/dashboard')}
-                                className="flex-1 md:flex-none px-6 py-3 bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold rounded-xl transition-colors order-1 md:order-none"
-                            >
-                                Cancel
-                            </button>
-                            <button
                                 type="submit"
                                 disabled={loading}
-                                className="flex-1 md:flex-none px-6 py-3 bg-linear-to-r from-[#6b4423] to-[#8b5a3c] hover:from-[#573619] hover:to-[#6b4423] text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed order-2 md:order-none"
+                                className="flex-1 md:flex-none px-6 py-3 bg-linear-to-r from-[#6b4423] to-[#8b5a3c] hover:from-[#573619] hover:to-[#6b4423] text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed order-2 md:order-0"
                             >
                                 {loading ? 'Creating...' : 'Create Order'}
                             </button>
@@ -806,6 +905,72 @@ const NewOrder = () => {
                     </form>
                 </div>
             </main>
+
+            {showInvoiceModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+                    <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl border border-slate-200">
+                        <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+                            <div>
+                                <p className="text-xs uppercase tracking-widest text-emerald-600 font-semibold">Invoice Ready</p>
+                                <h3 className="text-lg font-bold text-slate-800">Send Invoice</h3>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setShowInvoiceModal(false)}
+                                className="p-2 rounded-full hover:bg-slate-100 text-slate-500"
+                                aria-label="Close"
+                            >
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                        </div>
+                        <div className="px-5 py-4 space-y-3">
+                            {createdOrder?._id && (
+                                <p className="text-sm text-slate-700">
+                                    Order ID: <span className="font-semibold">{createdOrder._id.toString().slice(-6).toUpperCase()}</span>
+                                </p>
+                            )}
+                            {invoiceInfo && (
+                                <p className="text-sm text-slate-700">
+                                    Invoice: <span className="font-semibold">{invoiceInfo.invoiceNumber}</span>
+                                </p>
+                            )}
+                            <p className="text-sm text-slate-600">
+                                Send the text invoice directly to the customer on WhatsApp.
+                            </p>
+                        </div>
+                        <div className="px-5 pb-5 pt-2 flex flex-col sm:flex-row gap-3">
+                            <button
+                                type="button"
+                                onClick={() => setShowInvoiceModal(false)}
+                                className="flex-1 px-4 py-2.5 rounded-lg border border-slate-200 text-slate-700 font-semibold hover:bg-slate-50 transition-colors"
+                            >
+                                Close
+                            </button>
+                            <a
+                                href={whatsappLink || '#'}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className={`flex-1 text-center px-4 py-2.5 rounded-lg font-semibold transition-colors ${whatsappLink ? 'bg-emerald-600 text-white hover:bg-emerald-700' : 'bg-emerald-200 text-emerald-500 cursor-not-allowed'}`}
+                                onClick={(e) => {
+                                    if (!whatsappLink) {
+                                        e.preventDefault();
+                                        return;
+                                    }
+                                    // After sending invoice, return to dashboard
+                                    setTimeout(() => {
+                                        setShowInvoiceModal(false);
+                                        navigate('/dashboard');
+                                    }, 300);
+                                }}
+                            >
+                                Send Invoice
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

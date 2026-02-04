@@ -19,6 +19,7 @@ const TailorProfile = () => {
     const [isEditing, setIsEditing] = useState(false);
     const [showPostModal, setShowPostModal] = useState(false);
     const [toast, setToast] = useState(null);
+    const [previewImage, setPreviewImage] = useState(null);
 
     // New Post Form State
     const [postForm, setPostForm] = useState({
@@ -167,6 +168,28 @@ const TailorProfile = () => {
         }
     };
 
+    const handleShareProfile = async () => {
+        if (!tailorData) return;
+
+        const shareData = {
+            title: tailorData.shopName || "My Tailor Shop",
+            text: `Check out ${tailorData.shopName} on KStitch!`,
+            url: `${window.location.origin}/tailor/${tailorData._id}`
+        };
+
+        try {
+            if (navigator.share) {
+                await navigator.share(shareData);
+            } else {
+                await navigator.clipboard.writeText(shareData.url);
+                setToast('Profile link copied to clipboard!');
+                setTimeout(() => setToast(null), 3000);
+            }
+        } catch (err) {
+            console.error('Error sharing:', err);
+        }
+    };
+
     const getInitials = (name) => {
         if (!name) return 'T';
         const names = name.split(' ');
@@ -222,7 +245,12 @@ const TailorProfile = () => {
                     {/* Cover Photo Area */}
                     <div className="h-48 md:h-64 w-full bg-linear-to-r from-slate-200 to-slate-300 relative">
                         {tailorData.bannerImage ? (
-                            <img src={tailorData.bannerImage} alt="Cover" className="w-full h-full object-cover" />
+                            <img
+                                src={tailorData.bannerImage}
+                                alt="Cover"
+                                className="w-full h-full object-cover cursor-pointer hover:opacity-95 transition-opacity"
+                                onClick={() => setPreviewImage(tailorData.bannerImage)}
+                            />
                         ) : (
                             <>
                                 <div className="absolute inset-0 bg-linear-to-br from-[#6b4423] to-[#8b5a3c] opacity-80"></div>
@@ -238,7 +266,12 @@ const TailorProfile = () => {
                             {/* Profile Picture (Overlapping Banner) */}
                             <div className="w-32 h-32 md:w-40 md:h-40 rounded-full border-4 border-white shadow-md overflow-hidden bg-white shrink-0 relative z-10">
                                 {tailorData.shopImage ? (
-                                    <img src={tailorData.shopImage} alt="Shop" className="w-full h-full object-cover" />
+                                    <img
+                                        src={tailorData.shopImage}
+                                        alt="Shop"
+                                        className="w-full h-full object-cover cursor-pointer hover:opacity-95 transition-opacity"
+                                        onClick={() => setPreviewImage(tailorData.shopImage)}
+                                    />
                                 ) : (
                                     <div className="w-full h-full bg-slate-100 flex items-center justify-center text-slate-400 font-bold text-3xl md:text-4xl">
                                         {getInitials(tailorData.name)}
@@ -267,6 +300,10 @@ const TailorProfile = () => {
 
                                     {/* Desktop Actions */}
                                     <div className="hidden lg:flex gap-3 shrink-0">
+                                        <button onClick={handleShareProfile} className="px-5 py-2.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg font-bold transition-colors flex items-center gap-2">
+                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" /></svg>
+                                            Share Profile
+                                        </button>
                                         <button onClick={() => setShowProfileModal(true)} className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-lg font-bold transition-colors flex items-center gap-2">
                                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
                                             Edit Profile
@@ -291,6 +328,12 @@ const TailorProfile = () => {
 
                         {/* Mobile Actions */}
                         <div className="lg:hidden flex gap-3 mt-2 mb-2">
+                            <button
+                                onClick={handleShareProfile}
+                                className="px-4 py-2.5 bg-blue-50 text-blue-700 rounded-lg font-bold transition-colors text-sm flex items-center justify-center gap-2"
+                            >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" /></svg>
+                            </button>
                             <button
                                 onClick={() => setShowProfileModal(true)}
                                 className="flex-1 py-2.5 bg-slate-100 text-slate-800 rounded-lg font-bold transition-colors text-sm"
@@ -502,8 +545,31 @@ const TailorProfile = () => {
                     </div>
                 </div>
             )}
+            {/* Image Preview Modal (Lightbox) */}
+            {previewImage && (
+                <div
+                    className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-fade-in"
+                    onClick={() => setPreviewImage(null)}
+                >
+                    <button
+                        onClick={() => setPreviewImage(null)}
+                        className="absolute top-4 right-4 text-white hover:text-slate-300 transition-colors bg-black/20 p-2 rounded-full backdrop-blur-sm"
+                    >
+                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                    </button>
+                    <img
+                        src={previewImage}
+                        alt="Full Screen Preview"
+                        className="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl animate-scale-up"
+                        onClick={(e) => e.stopPropagation()}
+                    />
+                </div>
+            )}
         </div>
-    );
-};
+    )
+}
+
+
+
 
 export default TailorProfile;

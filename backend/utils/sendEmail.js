@@ -24,10 +24,11 @@ const sendEmail = async (options) => {
     });
 
     const message = {
-        from: `${process.env.FROM_NAME || 'ClaiFit'} <${process.env.FROM_EMAIL || 'noreply@styleease.com'}>`,
+        from: `${process.env.FROM_NAME || 'KStitch'} <${process.env.FROM_EMAIL || 'noreply@styleease.com'}>`,
         to: options.email,
         subject: options.subject,
         text: options.message,
+        html: options.html
     };
 
     try {

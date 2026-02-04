@@ -11,7 +11,7 @@ const RoleSelection = () => {
                 {/* Logo */}
                 <div className='flex items-center gap-3'>
                     <span className="text-4xl font-bold text-white tracking-tight" style={{ fontFamily: '"Playfair Display", serif' }}>
-                        Claifit
+                        KStitch
                     </span>
                 </div>
 
@@ -32,7 +32,7 @@ const RoleSelection = () => {
 
                 {/* Footer */}
                 <div className='text-gray-400 text-sm'>
-                    © 2024 Claifit Atelier Systems
+                    © 2024 KStitch Atelier Systems
                 </div>
             </div>
 
@@ -49,7 +49,7 @@ const RoleSelection = () => {
                             </button>
                         </div>
 
-                        <h2 className='text-3xl font-serif font-bold text-[#6b4423] mb-4'>Join Claifit</h2>
+                        <h2 className='text-3xl font-serif font-bold text-[#6b4423] mb-4'>Join KStitch</h2>
                         <p className='text-gray-600 mb-8'>Choose how you want to use the platform</p>
 
                         <div className='space-y-4'>

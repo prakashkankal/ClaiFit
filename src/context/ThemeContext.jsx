@@ -13,7 +13,7 @@ export const useTheme = () => {
 export const ThemeProvider = ({ children }) => {
     // Check localStorage for saved theme, default to 'light'
     const [theme, setTheme] = useState(() => {
-        const savedTheme = localStorage.getItem('claifit-theme');
+        const savedTheme = localStorage.getItem('kstitch-theme');
         return savedTheme || 'light';
     });
 
@@ -28,7 +28,7 @@ export const ThemeProvider = ({ children }) => {
         }
 
         // Save to localStorage
-        localStorage.setItem('claifit-theme', theme);
+        localStorage.setItem('kstitch-theme', theme);
     }, [theme]);
 
     const toggleTheme = () => {

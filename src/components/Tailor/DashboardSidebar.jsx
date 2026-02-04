@@ -77,7 +77,7 @@ const DashboardSidebar = ({ tailorData, onLogout }) => {
         <>
             <aside className="hidden lg:flex w-72 flex-col fixed inset-y-0 left-0 bg-white border-r border-gray-200 p-6 z-40">
                 <div className="mb-10 pl-2">
-                    <h4 className="text-3xl font-bold text-[#6b4423]" style={{ fontFamily: '"Playfair Display", serif' }}>Claifit</h4>
+                    <h4 className="text-3xl font-bold text-[#6b4423]" style={{ fontFamily: '"Playfair Display", serif' }}>KStitch</h4>
                     <span className="text-xs font-semibold text-amber-700 uppercase tracking-widest">Partner</span>
                 </div>
 
@@ -147,7 +147,7 @@ const DashboardSidebar = ({ tailorData, onLogout }) => {
             {/* Mobile Top Navigation Bar */}
             <div className="lg:hidden fixed top-0 left-0 right-0 h-14 bg-white border-b border-slate-200 flex items-center justify-between px-4 z-50">
                 <div className="flex items-center gap-2">
-                    <h1 className="text-xl font-bold text-[#6b4423]" style={{ fontFamily: '"Playfair Display", serif' }}>Claifit</h1>
+                    <h1 className="text-xl font-bold text-[#6b4423]" style={{ fontFamily: '"Playfair Display", serif' }}>KStitch</h1>
                     <span className="text-[10px] font-bold text-amber-700 uppercase tracking-wider">Partner</span>
                 </div>
                 <button
@@ -208,7 +208,7 @@ const DashboardSidebar = ({ tailorData, onLogout }) => {
                     ></div>
 
                     {/* Drawer Panel */}
-                    <div className="lg:hidden fixed top-0 right-0 bottom-0 w-72 bg-white z-[60] shadow-2xl animate-slide-in-right">
+                    <div className="lg:hidden fixed top-0 right-0 bottom-0 w-72 bg-white z-60 shadow-2xl animate-slide-in-right">
                         <div className="flex flex-col h-full">
                             {/* Drawer Header */}
                             <div className="px-6 py-5 border-b border-slate-200">
@@ -276,7 +276,7 @@ const DashboardSidebar = ({ tailorData, onLogout }) => {
 
             {/* Logout Confirmation Modal */}
             {showLogoutConfirm && (
-                <div className="fixed inset-0 bg-black/50 z-[70] flex items-center justify-center p-4">
+                <div className="fixed inset-0 bg-black/50 z-70 flex items-center justify-center p-4">
                     <div className="bg-white rounded-2xl p-6 max-w-sm w-full animate-slide-down">
                         <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
                             <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">

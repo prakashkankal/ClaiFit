@@ -32,7 +32,7 @@ test.describe('Tailor Features', () => {
 
             // Since "Find Tailors" points to "/" (homepage), checking for separate URL failed.
             // Instead, we verify we are still on the homepage where the search functionality exists.
-            await expect(page).toHaveURL(/.*claifit|\/$/);
+            await expect(page).toHaveURL(/.*kstitch|\/$/);
 
             // Optionally check if search functionality (Location input) is visible
             await expect(page.getByRole('textbox', { name: /location/i }).first()).toBeVisible();

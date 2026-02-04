@@ -6,7 +6,7 @@ test.describe('Homepage Tests', () => {
         await page.goto('/');
 
         // Check if the page loads with the correct branding
-        await expect(page).toHaveTitle(/Claifit/);
+        await expect(page).toHaveTitle(/KStitch/);
     });
 
     test('should display the main navigation', async ({ page }) => {

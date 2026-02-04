@@ -67,7 +67,7 @@ const Navbar = ({ showSearchBar = false, onSearch }) => {
                 {/* Left: Logo */}
                 <Link to="/" className="flex items-center gap-2">
                     <span className="text-xl font-bold tracking-tight text-[#4A3B32]" style={{ fontFamily: '"Playfair Display", serif' }}>
-                        Claifit
+                        KStitch
                     </span>
                 </Link>
 
@@ -109,7 +109,7 @@ const Navbar = ({ showSearchBar = false, onSearch }) => {
                     <Link to="/" className="flex items-center gap-2">
                         <div className="flex flex-col">
                             <span className="text-2xl font-bold tracking-tight text-[#4A3B32]" style={{ fontFamily: '"Playfair Display", serif' }}>
-                                Claifit
+                                KStitch
                             </span>
                         </div>
                     </Link>
@@ -141,7 +141,7 @@ const Navbar = ({ showSearchBar = false, onSearch }) => {
                                 ? 'bg-gray-100 hover:bg-gray-200'
                                 : 'bg-white/90 hover:bg-white'
                                 }`}>
-                                <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold bg-gradient-to-r from-[#8B7355] to-[#6B5444] text-white">
+                                <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold bg-linear-to-r from-[#8B7355] to-[#6B5444] text-white">
                                     {getInitials(user.name)}
                                 </div>
                                 <span className="text-sm text-gray-900 font-medium">{user.name}</span>
@@ -151,8 +151,8 @@ const Navbar = ({ showSearchBar = false, onSearch }) => {
                                 <Link
                                     to="/login"
                                     className={`px-6 py-2.5 rounded-full text-sm font-semibold transition-all duration-300 ${isScrolled
-                                        ? 'bg-gradient-to-r from-[#8B7355] to-[#6B5444] text-white hover:from-[#6B5444] hover:to-[#5A4535]'
-                                        : 'bg-gradient-to-r from-[#8B7355] to-[#6B5444] text-white hover:from-[#6B5444] hover:to-[#5A4535]'
+                                        ? 'bg-linear-to-r from-[#8B7355] to-[#6B5444] text-white hover:from-[#6B5444] hover:to-[#5A4535]'
+                                        : 'bg-linear-to-r from-[#8B7355] to-[#6B5444] text-white hover:from-[#6B5444] hover:to-[#5A4535]'
                                         } shadow-md hover:shadow-lg`}
                                     style={{ fontFamily: '"Inter", "Poppins", sans-serif' }}
                                 >

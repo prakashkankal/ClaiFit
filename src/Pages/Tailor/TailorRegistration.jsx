@@ -222,7 +222,7 @@ const TailorRegistration = () => {
                 localStorage.setItem('userInfo', JSON.stringify(data));
 
                 // Registration successful - auto-login and redirect to dashboard
-                navigate('/dashboard');
+                navigate('/verify-otp', { state: { email: formData.email } });
             } else {
                 setError(data.message || 'Registration failed');
             }
@@ -243,7 +243,7 @@ const TailorRegistration = () => {
             <div className='w-1/2 bg-[#1e3a5f] relative flex-col justify-between p-12 flex'>
                 {/* Logo */}
                 <div className='flex items-center gap-3'>
-                    <h1 className='text-4xl font-bold text-white' style={{ fontFamily: '"Playfair Display", serif' }}>Claifit</h1>
+                    <h1 className='text-4xl font-bold text-white' style={{ fontFamily: '"Playfair Display", serif' }}>KStitch</h1>
                 </div>
 
                 {/* Quote */}
@@ -256,7 +256,7 @@ const TailorRegistration = () => {
 
                 {/* Footer */}
                 <div className='text-gray-400 text-sm'>
-                    © 2024 Claifit Atelier Systems
+                    © 2024 KStitch Atelier Systems
                 </div>
             </div>
 
@@ -279,7 +279,7 @@ const TailorRegistration = () => {
                 <div className='hidden lg:flex lg:w-1/2 bg-[#1e3a5f] relative flex-col justify-between p-12'>
                     <div className='flex items-center gap-3'>
                         <span className="text-4xl font-bold text-white tracking-tight" style={{ fontFamily: '"Playfair Display", serif' }}>
-                            Claifit
+                            KStitch
                         </span>
                     </div>
                     <div className='text-white max-w-md'>
@@ -289,7 +289,7 @@ const TailorRegistration = () => {
                         <p className='text-lg text-gray-300'>— Coco Chanel</p>
                     </div>
                     <div className='text-gray-400 text-sm'>
-                        © 2024 Claifit Atelier Systems
+                        © 2024 KStitch Atelier Systems
                     </div>
                 </div>
 

@@ -302,10 +302,113 @@ router.put('/verify-email/:verificationToken', async (req, res) => {
 
         await user.save();
 
-        res.status(200).json({ success: true, data: 'Email Verified Successfully', message: 'Email verified. You can now login.' });
+        // Return user data with token for auto-login
+        if (userType === 'tailor') {
+            res.status(200).json({
+                success: true,
+                message: 'Email verified. Logging you in...',
+                _id: user._id,
+                name: user.name,
+                email: user.email,
+                phone: user.phone,
+                shopName: user.shopName,
+                shopImage: user.shopImage,
+                specialization: user.specialization,
+                experience: user.experience,
+                address: user.address,
+                businessHours: user.businessHours,
+                role: 'tailor',
+                token: generateToken(user._id)
+            });
+        } else {
+            res.status(200).json({
+                success: true,
+                message: 'Email verified. Logging you in...',
+                _id: user._id,
+                name: user.name,
+                email: user.email,
+                phone: user.phone,
+                profilePhoto: user.profilePhoto,
+                bio: user.bio,
+                dateOfBirth: user.dateOfBirth,
+                gender: user.gender,
+                city: user.city,
+                country: user.country,
+                alternatePhone: user.alternatePhone,
+                role: 'customer',
+                token: generateToken(user._id)
+            });
+        }
 
     } catch (error) {
-        console.error("Verification Error: ", error);
+        console.error("Email Verification Error:", error);
+        res.status(500).json({ message: 'Server Error' });
+    }
+});
+
+// @route   POST /api/auth/verify-otp
+// @desc    Verify OTP for Email
+router.post('/verify-otp', async (req, res) => {
+    try {
+        const { email, otp } = req.body;
+
+        if (!email || !otp) {
+            return res.status(400).json({ message: 'Email and OTP are required' });
+        }
+
+        let user = await Tailor.findOne({
+            email,
+            verificationToken: otp,
+            verificationTokenExpire: { $gt: Date.now() }
+        });
+
+        let userType = 'tailor';
+
+        if (!user) {
+            user = await User.findOne({
+                email,
+                verificationToken: otp,
+                verificationTokenExpire: { $gt: Date.now() }
+            });
+            userType = 'customer';
+        }
+
+        if (!user) {
+            return res.status(400).json({ message: 'Invalid or expired OTP' });
+        }
+
+        user.isVerified = true;
+        user.verificationToken = undefined;
+        user.verificationTokenExpire = undefined;
+
+        await user.save();
+
+        const token = generateToken(user._id);
+
+        if (userType === 'tailor') {
+            res.json({
+                success: true,
+                message: 'Email verified. Logging you in...',
+                _id: user._id,
+                name: user.name,
+                email: user.email,
+                role: 'tailor',
+                token
+            });
+        } else {
+            res.json({
+                success: true,
+                message: 'Email verified. Logging you in...',
+                _id: user._id,
+                name: user.name,
+                email: user.email,
+                role: 'customer',
+                token
+            });
+        }
+
+    } catch (error) {
+        console.error("OTP Verification Error: ", error);
         res.status(500).json({ message: 'Server Error' });
     }
 });

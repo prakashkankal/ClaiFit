@@ -14,15 +14,19 @@ import NewOrder from './Pages/Tailor/NewOrder'
 import OrderDetailsPage from './Pages/Tailor/OrderDetailsPage'
 import TailorCustomerDetails from './Pages/Tailor/TailorCustomerDetails'
 import MeasurementPresets from './Pages/Tailor/MeasurementPresets'
+import TailorNearMe from './Pages/Tailor/TailorNearMe'
 import Login from './Pages/Login'
 import UserRegistration from './Pages/UserRegistration'
 import Profile from './Pages/Customer/Profile'
 import CustomerOrders from './Pages/Customer/CustomerOrders'
 import TailorDetailPage from './Pages/Tailor/TailorDetailPage'
 import PostDetail from './Pages/Tailor/PostDetail'
+import TailorPostsReel from './Pages/Tailor/TailorPostsReel'
 import ForgotPassword from './Pages/Auth/ForgotPassword'
 import ResetPassword from './Pages/Auth/ResetPassword'
 import VerifyEmail from './Pages/Auth/VerifyEmail'
+import CheckEmail from './Pages/Auth/CheckEmail'
+import VerifyOtp from './Pages/Auth/VerifyOtp'
 import Navbar from './components/Shared/Navbar'
 import BottomNav from './components/Shared/BottomNav'
 
@@ -75,6 +79,8 @@ const App = () => {
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password/:resetToken" element={<ResetPassword />} />
           <Route path="/verify-email/:verificationToken" element={<VerifyEmail />} />
+          <Route path="/check-email" element={<CheckEmail />} />
+          <Route path="/verify-otp" element={<VerifyOtp />} />
           <Route path="/signup" element={<RoleSelection />} />
           <Route path="/signup/customer" element={<UserRegistration />} />
           <Route path="/signup/tailor" element={<TailorRegistration />} />
@@ -90,6 +96,8 @@ const App = () => {
               <TailorDetailPage />
             </>
           } />
+          <Route path="/tailor/:tailorId/posts" element={<TailorPostsReel />} />
+          <Route path="/tailor-near-me" element={<TailorNearMe />} />
           <Route path="/dashboard" element={
             <ProtectedTailorRoute>
               <TailorDashboard />

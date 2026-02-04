@@ -1,7 +1,10 @@
 import express from 'express';
 import mongoose from 'mongoose';
 import Order from '../models/Order.js';
+import Invoice from '../models/Invoice.js';
 import Tailor from '../models/Tailor.js';
+import { generateInvoiceImage } from '../utils/generateInvoiceImage.js';
+import { buildInvoiceMessage, createInvoiceForOrder } from '../utils/invoiceService.js';
 
 const router = express.Router();
 
@@ -257,9 +260,48 @@ router.post('/', async (req, res) => {
             };
         }
 
+        // Validate advance payment
+        const expectedTotal = isMultiItem
+            ? orderItems.reduce((sum, item) => sum + (item.totalPrice || 0), 0)
+            : price;
+        if (advancePayment && Number(advancePayment) > Number(expectedTotal || 0)) {
+            return res.status(400).json({ message: 'Advance payment cannot be greater than total amount.' });
+        }
+
         const order = await Order.create(orderData);
 
-        res.status(201).json(order);
+        let invoice = null;
+        let whatsappMessage = '';
+        let whatsappLink = '';
+
+        try {
+            invoice = await createInvoiceForOrder({ order });
+            const tailor = await Tailor.findById(order.tailorId);
+            // Build text-only invoice message (no PDF/JPG link)
+            whatsappMessage = buildInvoiceMessage({ invoice, order, tailor, invoiceLink: '' });
+            whatsappLink = order.customerPhone
+                ? `https://wa.me/${order.customerPhone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(whatsappMessage)}`
+                : '';
+        } catch (invoiceErr) {
+            console.error('Invoice creation error:', invoiceErr);
+        }
+
+        res.status(201).json({
+            ...order.toObject(),
+            invoice: invoice ? {
+                id: invoice._id,
+                invoiceNumber: invoice.invoiceNumber,
+                invoiceDate: invoice.createdAt,
+                totalAmount: invoice.totalAmount,
+                advanceAmount: invoice.advanceAmount,
+                dueAmount: invoice.dueAmount,
+                paymentStatus: invoice.paymentStatus,
+                link: ''
+            } : null,
+            invoiceLink: '',
+            whatsappMessage,
+            whatsappLink
+        });
     } catch (error) {
         console.error('Create order error:', error);
         res.status(500).json({ message: 'Error creating order', error: error.message });
@@ -283,15 +325,15 @@ router.put('/:orderId/status', async (req, res) => {
 
         // Validate status transitions
         const validTransitions = {
-            'Order Created': ['Cutting Completed'],
-            'Cutting Completed': ['Order Completed'],
-            'Order Completed': ['Delivered'],
+            'Order Created': ['Cutting Completed', 'Cancelled'],
+            'Cutting Completed': ['Order Completed', 'Order Created', 'Cancelled'],
+            'Order Completed': ['Delivered', 'Cutting Completed', 'Cancelled'],
             // Legacy statuses for backward compatibility
             'Pending': ['In Progress', 'Cancelled'],
-            'In Progress': ['Completed', 'Cancelled'],
-            'Completed': ['Delivered'],
-            'Delivered': [],
-            'Cancelled': []
+            'In Progress': ['Completed', 'Pending', 'Cancelled'],
+            'Completed': ['Delivered', 'In Progress'],
+            'Delivered': ['Order Completed'],
+            'Cancelled': ['Order Created']
         };
 
         const currentStatus = order.status;
@@ -325,45 +367,24 @@ router.put('/:orderId/status', async (req, res) => {
             { new: true, runValidators: true }
         );
 
-        // Generate WhatsApp Bill if Delivered
+        // Generate Invoice Image Link if Delivered (no text invoice)
         let whatsappMessage = '';
+        let invoiceImageLink = '';
         if (status === 'Delivered') {
             try {
-                const tailor = await Tailor.findById(updatedOrder.tailorId);
-                const shopName = tailor ? tailor.shopName : 'Tailor Shop';
-
-                const tailorName = tailor ? tailor.name : 'Master';
-                const balanceDue = updatedOrder.price - (updatedOrder.advancePayment || 0);
-                const deliveryDate = new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
-
-                // Construct URL dynamically based on the request host to support local IP access (better for mobile links)
                 const baseUrl = process.env.API_URL || `${req.protocol}://${req.get('host')}`;
-                const invoiceLink = `${baseUrl}/api/orders/${updatedOrder._id}/invoice`;
-
-                console.log('Generating Delivery WhatsApp Message for Order:', updatedOrder._id);
-
-                whatsappMessage = `Hello ${updatedOrder.customerName},\n\n` +
-                    `Thank you for choosing ${shopName}.\n` +
-                    `Your invoice for Order ID #${updatedOrder._id.toString().slice(-6).toUpperCase()} is ready.\n\n` +
-                    `Amount: ₹${updatedOrder.price}\n` +
-                    `Balance Due: ₹${balanceDue}\n` +
-                    `Delivery Date: ${deliveryDate}\n\n` +
-                    `👉 View & download your invoice here:\n` +
-                    `${invoiceLink}\n\n` +
-                    `If you have any questions or need alterations, feel free to contact us.\n\n` +
-                    `Regards,\n` +
-                    `${tailorName}\n` +
-                    `${shopName}\n` +
-                    `📞 ${tailor.phone}`;
+                invoiceImageLink = `${baseUrl}/api/orders/${updatedOrder._id}/invoice-jpg`;
+                console.log('Generating Delivery Invoice Image for Order:', updatedOrder._id);
             } catch (err) {
-                console.error('Error generating WA message:', err);
+                console.error('Error generating invoice image link:', err);
             }
         }
 
         res.json({
             order: updatedOrder,
             whatsappMessage,
-            customerPhone: updatedOrder.customerPhone
+            customerPhone: updatedOrder.customerPhone,
+            invoiceImageLink
         });
     } catch (error) {
         console.error('Update order status error:', error);
@@ -494,9 +515,9 @@ router.get('/:orderId/invoice', async (req, res) => {
         doc.text('INVOICE #', 350, gridY + 6, { width: 100, align: 'center' });
         doc.text('DATE', 450, gridY + 6, { width: 100, align: 'center' });
 
-        // Values
-        const invoiceNum = order._id.toString().slice(-6).toUpperCase();
-        const invoiceDate = new Date().toLocaleDateString();
+        const invoiceDoc = await Invoice.findOne({ orderId });
+        const invoiceNum = invoiceDoc?.invoiceNumber || order._id.toString().slice(-6).toUpperCase();
+        const invoiceDate = (invoiceDoc?.createdAt ? new Date(invoiceDoc.createdAt) : new Date()).toLocaleDateString();
         doc.rect(350, gridY + 20, 100, 20).stroke('#cccccc');
         doc.rect(450, gridY + 20, 100, 20).stroke('#cccccc');
         doc.font('Helvetica').fontSize(10).fillColor('#000000');
@@ -591,6 +612,31 @@ router.get('/:orderId/invoice', async (req, res) => {
     } catch (error) {
         console.error('PDF Gen Error:', error);
         res.status(500).send('Error generating invoice');
+    }
+});
+
+
+// @desc    Generate JPEG Invoice (Ryapar Style)
+// @route   GET /api/orders/:orderId/invoice-jpg
+// @access  Public (Shareable Link)
+router.get('/:orderId/invoice-jpg', async (req, res) => {
+    try {
+        const { orderId } = req.params;
+        const order = await Order.findById(orderId);
+
+        if (!order) return res.status(404).send('Order not found');
+
+        const tailor = await Tailor.findById(order.tailorId);
+
+        const imageBuffer = await generateInvoiceImage(order, tailor);
+
+        res.setHeader('Content-Type', 'image/png');
+        res.setHeader('Content-Disposition', `inline; filename=Invoice-${order._id.toString().slice(-6)}.png`);
+        res.send(imageBuffer);
+
+    } catch (error) {
+        console.error('Image Gen Error:', error);
+        res.status(500).send('Error generating invoice image');
     }
 });
 

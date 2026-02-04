@@ -1,0 +1,67 @@
+<svg
+  width="512"
+  height="512"
+  viewBox="0 0 512 512"
+  xmlns="http://www.w3.org/2000/svg"
+>
+  <!-- Background circle -->
+  <circle cx="256" cy="256" r="240" fill="#4A3A2E" />
+
+  <!-- Vertical stroke of K -->
+  <line
+    x1="210"
+    y1="150"
+    x2="210"
+    y2="360"
+    stroke="#D8C4AA"
+    stroke-width="28"
+    stroke-linecap="round"
+  />
+
+  <!-- Upper diagonal of K -->
+  <line
+    x1="210"
+    y1="250"
+    x2="320"
+    y2="150"
+    stroke="#D8C4AA"
+    stroke-width="28"
+    stroke-linecap="round"
+  />
+
+  <!-- Needle forming lower diagonal of K -->
+  <line
+    x1="210"
+    y1="250"
+    x2="330"
+    y2="350"
+    stroke="#EFE6D8"
+    stroke-width="10"
+    stroke-linecap="round"
+  />
+
+  <!-- Needle eye -->
+  <ellipse
+    cx="330"
+    cy="350"
+    rx="9"
+    ry="6"
+    stroke="#EFE6D8"
+    stroke-width="4"
+    fill="none"
+  />
+
+  <!-- Thread forming SAME S-shape as reference image -->
+  <path
+    d="
+      M330 350
+      C350 330, 385 330, 380 360
+      C375 395, 330 395, 345 430
+      C355 455, 330 465, 310 455
+    "
+    stroke="#D8C4AA"
+    stroke-width="6"
+    fill="none"
+    stroke-linecap="round"
+  />
+</svg>

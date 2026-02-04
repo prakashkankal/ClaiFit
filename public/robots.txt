@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://clai-fit.vercel.app/sitemap.xml
+Sitemap: https://kstitch.vercel.app/sitemap.xml

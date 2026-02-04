@@ -27,7 +27,7 @@ const TailorBottom = ({
             <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-4 py-3 z-50 flex gap-3 safe-area-pb shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)]">
                 {/* WhatsApp Button - Primary */}
                 <a
-                    href={`https://wa.me/${tailor?.phone?.replace(/[^0-9]/g, '')}?text=Hi, I found your profile on Claifit. I’d like to discuss stitching.`}
+                    href={`https://wa.me/${tailor?.phone?.replace(/[^0-9]/g, '')}?text=Hi, I found your profile on KStitch. I’d like to discuss stitching.`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex-1 bg-[#25D366] hover:bg-[#20bd5a] active:scale-95 transition-all text-white font-semibold py-3 rounded-xl text-sm shadow-sm flex items-center justify-center gap-2"
@@ -88,11 +88,11 @@ const TailorBottom = ({
                         </button>
 
                         {/* Left: Image Container */}
-                        <div className="w-full md:w-3/5 bg-black/5 relative flex items-center justify-center group h-[40vh] md:h-auto overflow-hidden">
+                        <div className="w-full md:w-3/5 bg-black relative flex items-center justify-center group h-[40vh] md:h-auto overflow-hidden">
                             <img
                                 src={filteredPortfolio[lightboxIndex]?.images?.[0] || filteredPortfolio[lightboxIndex]?.image || filteredPortfolio[lightboxIndex]}
                                 alt={filteredPortfolio[lightboxIndex]?.title || "Portfolio Item"}
-                                className="w-full h-full object-cover"
+                                className="w-full h-full object-contain"
                             />
 
                             {/* Navigation Arrows (Desktop overlay / Mobile overlay) */}

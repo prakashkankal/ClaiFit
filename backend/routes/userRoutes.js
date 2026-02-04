@@ -42,13 +42,16 @@ router.post('/register', async (req, res) => {
 
         // Create user (password will be hashed by the pre-save hook)
         // Create user (password will be hashed by the pre-save hook)
+        const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
+        // Create user (password will be hashed by the pre-save hook)
         const user = await User.create({
             name,
             email,
             password,
             phone,
             isVerified: false,
-            verificationToken: crypto.randomBytes(32).toString('hex'),
+            verificationToken: otp,
             verificationTokenExpire: Date.now() + 24 * 60 * 60 * 1000 // 24 hours
         });
 
@@ -56,12 +59,12 @@ router.post('/register', async (req, res) => {
 
         if (user) {
             // Send Verification Email
-            const verificationUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/verify-email/${user.verificationToken}`;
-
             const message = `
                 <h1>Email Verification</h1>
-                <p>Please click the link below to verify your email address:</p>
-                <a href=${verificationUrl} clicktracking=off>${verificationUrl}</a>
+                <p>Your verification code is:</p>
+                <h2 style="color: #6b4423; letter-spacing: 5px;">${otp}</h2>
+                <p>Please enter this code to verify your email address.</p>
+                <p>This code will expire in 24 hours.</p>
             `;
 
             try {

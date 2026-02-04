@@ -69,8 +69,7 @@ const UserRegistration = () => {
                 phone: formData.phone
             });
 
-            localStorage.setItem('userInfo', JSON.stringify(data));
-            navigate('/');
+            navigate('/verify-otp', { state: { email: formData.email } });
         } catch (err) {
             setError(err.response?.data?.message || 'Registration failed. Please try again.');
         } finally {
@@ -88,7 +87,7 @@ const UserRegistration = () => {
             <div className='hidden lg:flex lg:w-1/2 bg-[#1e3a5f] relative flex-col justify-between p-12'>
                 <div className='flex items-center gap-3'>
                     <span className="text-4xl font-bold text-white tracking-tight" style={{ fontFamily: '"Playfair Display", serif' }}>
-                        Claifit
+                        KStitch
                     </span>
                 </div>
                 <div className='text-white max-w-md'>
@@ -98,7 +97,7 @@ const UserRegistration = () => {
                     <p className='text-lg text-gray-300'>— Giorgio Armani</p>
                 </div>
                 <div className='text-gray-400 text-sm'>
-                    © 2024 Claifit Atelier Systems
+                    © 2024 KStitch Atelier Systems
                 </div>
             </div>
 
@@ -119,7 +118,7 @@ const UserRegistration = () => {
                     {/* Header */}
                     <div className='text-center mb-8'>
                         <span className="block lg:hidden text-2xl font-bold text-[#6b4423] mb-6" style={{ fontFamily: '"Playfair Display", serif' }}>
-                            Claifit
+                            KStitch
                         </span>
                         <h2 className='text-2xl font-bold text-gray-900 mb-2'>
                             Create Account

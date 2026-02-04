@@ -24,6 +24,9 @@ const TailorPortfolio = () => {
         }
     }, [navigate]);
 
+    const [showLightbox, setShowLightbox] = useState(false);
+    const [lightboxIndex, setLightboxIndex] = useState(0);
+
     const handleLogout = () => {
         localStorage.removeItem('userInfo');
         navigate('/login');
@@ -93,9 +96,15 @@ const TailorPortfolio = () => {
                     <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-6">
                         {portfolioItems.map((item, index) => (
                             <div key={index} className="bg-white border border-slate-200 rounded-xl md:rounded-2xl overflow-hidden shadow-sm hover:shadow-md md:hover:shadow-xl transition-all group">
-                                {/* Image Placeholder */}
-                                <div className="w-full h-32 md:h-48 bg-linear-to-br from-slate-50 to-slate-100 flex items-center justify-center relative overflow-hidden">
-                                    <div className="text-slate-300 group-hover:scale-110 transition-transform">
+                                {/* Image Placeholder - Clickable for Preview */}
+                                <div
+                                    onClick={() => {
+                                        setLightboxIndex(index);
+                                        setShowLightbox(true);
+                                    }}
+                                    className="w-full h-32 md:h-48 bg-linear-to-br from-slate-50 to-slate-100 flex items-center justify-center relative overflow-hidden cursor-pointer group-hover:opacity-95"
+                                >
+                                    <div className="text-slate-300 group-hover:scale-110 transition-transform duration-500">
                                         {item.category === 'Menswear' ? (
                                             <svg className="w-12 h-12 md:w-16 md:h-16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
                                         ) : item.category === 'Womenswear' ? (
@@ -106,6 +115,14 @@ const TailorPortfolio = () => {
                                     </div>
                                     <div className="absolute top-2 right-2 md:top-3 md:right-3 px-2 py-0.5 md:px-3 md:py-1 bg-white/95 rounded-full text-[9px] md:text-xs font-bold text-[#6b4423] shadow-sm">
                                         {item.category}
+                                    </div>
+                                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+                                        <div className="bg-white/90 p-2 rounded-full shadow-sm backdrop-blur-sm transform scale-75 group-hover:scale-100 transition-all">
+                                            <svg className="w-5 h-5 text-slate-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                            </svg>
+                                        </div>
                                     </div>
                                 </div>
 
@@ -125,6 +142,87 @@ const TailorPortfolio = () => {
                     </div>
                 )}
             </main>
+
+            {/* Lightbox Preview Modal */}
+            {showLightbox && portfolioItems[lightboxIndex] && (
+                <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="relative bg-white w-full max-w-4xl max-h-[90vh] rounded-2xl shadow-2xl overflow-hidden flex flex-col md:flex-row animate-in zoom-in-95 duration-200">
+                        {/* Close Button */}
+                        <button
+                            onClick={() => setShowLightbox(false)}
+                            className="absolute top-4 right-4 z-20 p-2 bg-black/20 hover:bg-black/40 text-white rounded-full backdrop-blur-md transition-colors"
+                        >
+                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                        </button>
+
+                        {/* Image Container */}
+                        <div className="w-full md:w-3/5 bg-slate-100 relative flex items-center justify-center h-[40vh] md:h-auto min-h-[300px]">
+                            {/* Render placeholder SVG if no actual image URL (since these are hardcoded items with no img url in this file yet) */}
+                            <div className="text-slate-300 transform scale-150">
+                                {portfolioItems[lightboxIndex].category === 'Menswear' ? (
+                                    <svg className="w-24 h-24" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+                                ) : portfolioItems[lightboxIndex].category === 'Womenswear' ? (
+                                    <svg className="w-24 h-24" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" /></svg>
+                                ) : (
+                                    <svg className="w-24 h-24" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                )}
+                            </div>
+
+                            {/* Nav Arrows */}
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setLightboxIndex((prev) => (prev > 0 ? prev - 1 : portfolioItems.length - 1));
+                                }}
+                                className="absolute left-4 p-2 rounded-full bg-white/80 text-slate-800 hover:bg-white shadow-lg backdrop-blur-sm transition-transform active:scale-95"
+                            >
+                                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+                            </button>
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setLightboxIndex((prev) => (prev < portfolioItems.length - 1 ? prev + 1 : 0));
+                                }}
+                                className="absolute right-4 p-2 rounded-full bg-white/80 text-slate-800 hover:bg-white shadow-lg backdrop-blur-sm transition-transform active:scale-95"
+                            >
+                                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                            </button>
+                        </div>
+
+                        {/* Details */}
+                        <div className="w-full md:w-2/5 p-8 bg-white flex flex-col justify-between">
+                            <div>
+                                <span className="inline-block px-3 py-1 rounded-full bg-amber-50 text-amber-800 text-xs font-bold uppercase tracking-wider mb-4 border border-amber-100">
+                                    {portfolioItems[lightboxIndex].category}
+                                </span>
+                                <h2 className="text-3xl font-bold text-slate-800 mb-2 font-serif">{portfolioItems[lightboxIndex].title}</h2>
+                                <p className="text-2xl font-bold text-[#6b4423] mb-6">{portfolioItems[lightboxIndex].price}</p>
+                                <hr className="border-slate-100 mb-6" />
+                                <p className="text-slate-600 leading-relaxed font-light">
+                                    {portfolioItems[lightboxIndex].description}
+                                </p>
+                            </div>
+
+                            <div className="flex gap-3 mt-8">
+                                <button className="flex-1 py-3 bg-[#6b4423] text-white rounded-xl font-medium hover:bg-[#573619] transition-colors shadow-md">
+                                    Edit Details
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        if (window.confirm('Delete this item?')) {
+                                            // Mock delete
+                                            setShowLightbox(false);
+                                        }
+                                    }}
+                                    className="px-4 py-3 border border-red-200 text-red-600 rounded-xl font-medium hover:bg-red-50 transition-colors"
+                                >
+                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     )
 }

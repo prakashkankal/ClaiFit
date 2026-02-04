@@ -8,8 +8,8 @@ const RecentOrders = ({ tailorId }) => {
     const [orders, setOrders] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-    const [updatingOrder, setUpdatingOrder] = useState(null);
     const [showingUpcoming, setShowingUpcoming] = useState(false);
+    const [openMenuId, setOpenMenuId] = useState(null);
 
     const fetchOrders = async () => {
         if (!tailorId) return;
@@ -99,24 +99,6 @@ const RecentOrders = ({ tailorId }) => {
         fetchOrders();
     }, [tailorId]);
 
-    const handleStatusUpdate = async (orderId, newStatus) => {
-        try {
-            setUpdatingOrder(orderId);
-
-            await axios.put(`${API_URL}/api/orders/${orderId}/status`, {
-                status: newStatus
-            });
-
-            // Refresh orders
-            await fetchOrders();
-        } catch (err) {
-            console.error('Error updating status:', err);
-            alert(err.response?.data?.message || 'Failed to update order status');
-        } finally {
-            setUpdatingOrder(null);
-        }
-    };
-
     const formatDate = (dateString) => {
         if (!dateString) return '-';
         const date = new Date(dateString);
@@ -187,6 +169,52 @@ const RecentOrders = ({ tailorId }) => {
 
     const handleCardClick = (order) => {
         navigate(`/orders/${order._id}`);
+    };
+
+    const getInvoiceImageLink = (orderId) => `${API_URL}/api/orders/${orderId}/invoice-jpg`;
+
+    const isImageInvoiceStatus = (status) => ['Order Completed', 'Delivered', 'Completed'].includes(status);
+
+    const buildTextInvoiceMessage = (order) => {
+        return `Hello ${order.customerName},\n\n` +
+            `Your invoice for Order #${order._id.slice(-6).toUpperCase()} is ready.\n\n` +
+            `Total Amount: ₹${order.price}\n` +
+            `Advance Paid: ₹${order.advancePayment || 0}\n` +
+            `Balance Due: ₹${(order.price || 0) - (order.advancePayment || 0)}\n\n` +
+            `Thank you,\nKStitch`;
+    };
+
+    const handleSendInvoice = (order) => {
+        if (!order?.customerPhone) return;
+        const phone = order.customerPhone.replace(/[^0-9]/g, '');
+
+        if (isImageInvoiceStatus(order.status)) {
+            const invoiceLink = getInvoiceImageLink(order._id);
+            const message = `Hello ${order.customerName},\n\n` +
+                `Your invoice image is ready.\n` +
+                `View invoice: ${invoiceLink}\n\n` +
+                `Thank you,\nKStitch`;
+            const whatsappUrl = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+            window.open(whatsappUrl, '_blank');
+            return;
+        }
+
+        const message = buildTextInvoiceMessage(order);
+        const whatsappUrl = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+        window.open(whatsappUrl, '_blank');
+    };
+
+    const handleViewInvoice = (order) => {
+        if (isImageInvoiceStatus(order.status)) {
+            window.open(getInvoiceImageLink(order._id), '_blank');
+            return;
+        }
+
+        if (!order?.customerPhone) return;
+        const phone = order.customerPhone.replace(/[^0-9]/g, '');
+        const message = buildTextInvoiceMessage(order);
+        const whatsappUrl = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+        window.open(whatsappUrl, '_blank');
     };
 
     if (error) {
@@ -280,51 +308,48 @@ const RecentOrders = ({ tailorId }) => {
                                         </div>
                                     </div>
 
-                                    {/* Action Buttons */}
-                                    <div className="flex gap-3" onClick={(e) => e.stopPropagation()}>
-                                        {order.status === 'Order Created' && (
-                                            <button
-                                                onClick={() => handleStatusUpdate(order._id, 'Cutting Completed')}
-                                                disabled={updatingOrder === order._id}
-                                                className="flex-1 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                                            >
-                                                {updatingOrder === order._id ? (
-                                                    <span>Updating...</span>
-                                                ) : (
-                                                    <>
-                                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.121 14.121L19 19m-7-7l7-7m-7 7l-2.879 2.879M12 12L9.121 9.121m0 5.758a3 3 0 10-4.243 4.243 3 3 0 004.243-4.243zm0-5.758a3 3 0 10-4.243-4.243 3 3 0 004.243 4.243z" /></svg>
-                                                        <span>Mark Cutting Done</span>
-                                                    </>
-                                                )}
-                                            </button>
-                                        )}
-                                        {order.status === 'Cutting Completed' && (
-                                            <button
-                                                onClick={() => handleStatusUpdate(order._id, 'Order Completed')}
-                                                disabled={updatingOrder === order._id}
-                                                className="flex-1 px-4 py-2.5 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                                            >
-                                                {updatingOrder === order._id ? (
-                                                    <span>Updating...</span>
-                                                ) : (
-                                                    <>
-                                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                                                        <span>Mark Complete</span>
-                                                    </>
-                                                )}
-                                            </button>
-                                        )}
-                                        {order.status === 'Order Completed' && (
-                                            <button
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    navigate(`/orders/${order._id}`);
-                                                }}
-                                                className="flex-1 px-4 py-2.5 bg-slate-800 hover:bg-slate-900 text-white text-sm font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
-                                            >
-                                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" /></svg>
-                                                <span>Deliver & Pay</span>
-                                            </button>
+                                    {/* Actions Menu */}
+                                    <div className="relative flex justify-end" onClick={(e) => e.stopPropagation()}>
+                                        <button
+                                            onClick={() => setOpenMenuId(openMenuId === order._id ? null : order._id)}
+                                            className="w-10 h-10 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center"
+                                            aria-label="Order actions"
+                                        >
+                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v.01M12 12v.01M12 18v.01" />
+                                            </svg>
+                                        </button>
+                                        {openMenuId === order._id && (
+                                            <div className="absolute right-0 top-12 z-20 w-44 rounded-xl border border-slate-200 bg-white shadow-lg p-1">
+                                                <button
+                                                    onClick={() => {
+                                                        handleSendInvoice(order);
+                                                        setOpenMenuId(null);
+                                                    }}
+                                                    disabled={!order.customerPhone}
+                                                    className="w-full text-left px-3 py-2 text-sm rounded-lg hover:bg-slate-50 disabled:text-slate-300"
+                                                >
+                                                    Send Invoice
+                                                </button>
+                                                <button
+                                                    onClick={() => {
+                                                        handleViewInvoice(order);
+                                                        setOpenMenuId(null);
+                                                    }}
+                                                    className="w-full text-left px-3 py-2 text-sm rounded-lg hover:bg-slate-50"
+                                                >
+                                                    View Invoice
+                                                </button>
+                                                <button
+                                                    onClick={() => {
+                                                        navigate(`/orders/${order._id}`);
+                                                        setOpenMenuId(null);
+                                                    }}
+                                                    className="w-full text-left px-3 py-2 text-sm rounded-lg hover:bg-slate-50"
+                                                >
+                                                    More Options
+                                                </button>
+                                            </div>
                                         )}
                                     </div>
                                 </div>
@@ -368,7 +393,7 @@ const RecentOrders = ({ tailorId }) => {
                                         </span>
                                     </div>
 
-                                    {/* Right: Quick Action Icon */}
+                                    {/* Right: Actions Menu */}
                                     <div
                                         className="pl-3 shrink-0"
                                         onClick={(e) => {
@@ -376,49 +401,49 @@ const RecentOrders = ({ tailorId }) => {
                                             // Only stop prop for action clicks, not the container
                                         }}
                                     >
-                                        {order.status === 'Order Created' && (
+                                        <div className="relative">
                                             <button
-                                                onClick={() => handleStatusUpdate(order._id, 'Cutting Completed')}
-                                                disabled={updatingOrder === order._id}
-                                                className="w-10 h-10 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center hover:bg-blue-100 active:scale-95 transition-all outline-none"
-                                            >
-                                                {updatingOrder === order._id ? (
-                                                    <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-                                                ) : (
-                                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.121 14.121L19 19m-7-7l7-7m-7 7l-2.879 2.879M12 12L9.121 9.121m0 5.758a3 3 0 10-4.243 4.243 3 3 0 004.243-4.243zm0-5.758a3 3 0 10-4.243-4.243 3 3 0 004.243 4.243z" />
-                                                    </svg>
-                                                )}
-                                            </button>
-                                        )}
-                                        {order.status === 'Cutting Completed' && (
-                                            <button
-                                                onClick={() => handleStatusUpdate(order._id, 'Order Completed')}
-                                                disabled={updatingOrder === order._id}
-                                                className="w-10 h-10 bg-green-50 text-green-600 rounded-full flex items-center justify-center hover:bg-green-100 active:scale-95 transition-all outline-none"
-                                            >
-                                                {updatingOrder === order._id ? (
-                                                    <div className="w-4 h-4 border-2 border-green-600 border-t-transparent rounded-full animate-spin"></div>
-                                                ) : (
-                                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                                    </svg>
-                                                )}
-                                            </button>
-                                        )}
-                                        {order.status === 'Order Completed' && (
-                                            <button
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    navigate(`/orders/${order._id}`);
-                                                }}
+                                                onClick={() => setOpenMenuId(openMenuId === order._id ? null : order._id)}
                                                 className="w-10 h-10 bg-slate-100 text-slate-600 rounded-full flex items-center justify-center hover:bg-slate-200 active:scale-95 transition-all outline-none"
+                                                aria-label="Order actions"
                                             >
                                                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v.01M12 12v.01M12 18v.01" />
                                                 </svg>
                                             </button>
-                                        )}
+                                            {openMenuId === order._id && (
+                                                <div className="absolute right-0 top-12 z-20 w-44 rounded-xl border border-slate-200 bg-white shadow-lg p-1">
+                                                    <button
+                                                        onClick={() => {
+                                                            handleSendInvoice(order);
+                                                            setOpenMenuId(null);
+                                                        }}
+                                                        disabled={!order.customerPhone}
+                                                        className="w-full text-left px-3 py-2 text-sm rounded-lg hover:bg-slate-50 disabled:text-slate-300"
+                                                    >
+                                                        Send Invoice
+                                                    </button>
+                                                    <button
+                                                        onClick={() => {
+                                                            handleViewInvoice(order);
+                                                            setOpenMenuId(null);
+                                                        }}
+                                                        className="w-full text-left px-3 py-2 text-sm rounded-lg hover:bg-slate-50"
+                                                    >
+                                                        View Invoice
+                                                    </button>
+                                                    <button
+                                                        onClick={() => {
+                                                            navigate(`/orders/${order._id}`);
+                                                            setOpenMenuId(null);
+                                                        }}
+                                                        className="w-full text-left px-3 py-2 text-sm rounded-lg hover:bg-slate-50"
+                                                    >
+                                                        More Options
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
                             );

@@ -76,7 +76,7 @@ const Login = () => {
                 {/* Logo */}
                 <div className='flex items-center gap-3'>
                     <span className="text-4xl font-bold text-white tracking-tight" style={{ fontFamily: '"Playfair Display", serif' }}>
-                        Claifit
+                        KStitch
                     </span>
                 </div>
 
@@ -99,7 +99,7 @@ const Login = () => {
 
                 {/* Footer */}
                 <div className='text-gray-400 text-sm'>
-                    © 2024 Claifit Atelier Systems
+                    © 2024 KStitch Atelier Systems
                 </div>
             </div>
 
@@ -131,13 +131,13 @@ const Login = () => {
                             {/* Heading */}
                             <div className='text-center mb-8'>
                                 <span className="block text-3xl font-bold text-[#6b4423] mb-4" style={{ fontFamily: '"Playfair Display", serif' }}>
-                                    Claifit
+                                    KStitch
                                 </span>
                                 <h2 className='text-2xl font-serif font-bold text-gray-900 mb-2'>
                                     Login
                                 </h2>
                                 <p className='text-gray-600 text-sm'>
-                                    Enter your credentials to access Claifit.
+                                    Enter your credentials to access KStitch.
                                 </p>
                             </div>
 

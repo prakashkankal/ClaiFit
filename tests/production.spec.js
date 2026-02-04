@@ -21,7 +21,7 @@ test.describe('Production Smoke Tests - Critical Paths', () => {
         expect(response?.status()).toBeLessThan(400);
 
         // Check branding is visible
-        await expect(page).toHaveTitle(/Claifit/);
+        await expect(page).toHaveTitle(/KStitch/);
 
         // Check no critical errors in console
         const errors = [];

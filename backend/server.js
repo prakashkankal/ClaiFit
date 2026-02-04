@@ -10,6 +10,7 @@ import authRoutes from './routes/authRoutes.js';
 import orderRoutes from './routes/orderRoutes.js';
 import presetRoutes from './routes/presetRoutes.js';
 import postRoutes from './routes/postRoutes.js';
+import invoiceRoutes from './routes/invoiceRoutes.js';
 
 dotenv.config();
 
@@ -39,6 +40,7 @@ app.use('/api/tailors', tailorRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/orders', orderRoutes);
+app.use('/api/invoices', invoiceRoutes);
 app.use('/api/presets', presetRoutes);
 app.use('/api/posts', postRoutes);
 

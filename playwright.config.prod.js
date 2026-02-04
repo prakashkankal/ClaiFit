@@ -34,7 +34,7 @@ export default defineConfig({
     /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
     use: {
         /* Base URL - YOUR DEPLOYED VERCEL URL */
-        baseURL: process.env.PROD_URL || 'https://claifit.vercel.app',
+        baseURL: process.env.PROD_URL || 'https://kstitch.vercel.app',
 
         /* Collect trace when retrying the failed test */
         trace: 'retain-on-failure',

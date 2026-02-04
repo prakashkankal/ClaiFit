@@ -20,7 +20,7 @@ const Footer = () => {
                     <div>
                         <div className='flex items-center gap-2 mb-2 md:mb-4'>
                             <span className="text-2xl md:text-3xl font-bold text-white" style={{ fontFamily: '"Playfair Display", serif' }}>
-                                Claifit
+                                KStitch
                             </span>
                         </div>
                         <p className='text-xs md:text-sm leading-relaxed'>
@@ -46,7 +46,7 @@ const Footer = () => {
                         <h4 className='text-white font-bold mb-2 md:mb-4 text-sm md:text-base'>Quick Links</h4>
                         <ul className='space-y-1.5 md:space-y-2 text-xs md:text-sm'>
                             <li><Link to='/' className='hover:text-white transition-colors'>Home</Link></li>
-                            <li><Link to='/' className='hover:text-white transition-colors'>Find Tailors</Link></li>
+                            <li><Link to='/tailor-near-me' className='hover:text-white transition-colors'>Find Tailors</Link></li>
                             <li><Link to='/' className='hover:text-white transition-colors'>Pricing</Link></li>
                             <li><Link to='/' className='hover:text-white transition-colors'>About</Link></li>
                         </ul>
@@ -88,7 +88,7 @@ const Footer = () => {
 
                 {/* Bottom Bar */}
                 <div className='border-t border-gray-800 pt-4 md:pt-6 text-center text-xs md:text-sm'>
-                    <p>© {new Date().getFullYear()} CLAIFIT ATELIER SYSTEMS. All rights reserved.</p>
+                    <p>© {new Date().getFullYear()} KSTITCH ATELIER SYSTEMS. All rights reserved.</p>
                 </div>
             </div>
         </footer>

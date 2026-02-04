@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import API_URL from '../../config/api';
 
 const VerifyEmail = () => {
     const { verificationToken } = useParams();
+    const navigate = useNavigate();
     const [status, setStatus] = useState('verifying'); // verifying, success, error
     const [message, setMessage] = useState('');
 
@@ -14,6 +15,16 @@ const VerifyEmail = () => {
                 const { data } = await axios.put(`${API_URL}/api/auth/verify-email/${verificationToken}`);
                 setStatus('success');
                 setMessage(data.message || 'Email verified successfully!');
+
+                // Save user info to local storage for auto-login
+                if (data.token) {
+                    localStorage.setItem('userInfo', JSON.stringify(data));
+                }
+
+                // Auto redirect to home or dashboard after 3 seconds
+                setTimeout(() => {
+                    navigate('/');
+                }, 3000);
             } catch (error) {
                 setStatus('error');
                 setMessage(error.response?.data?.message || 'Verification failed. Token might be invalid or expired.');
@@ -23,7 +34,7 @@ const VerifyEmail = () => {
         if (verificationToken) {
             verifyEmail();
         }
-    }, [verificationToken]);
+    }, [verificationToken, navigate]);
 
     return (
         <div className='min-h-screen flex items-center justify-center bg-[#f5f5f0] p-4 text-slate-900'>
@@ -44,8 +55,9 @@ const VerifyEmail = () => {
                         </div>
                         <h2 className='text-2xl font-bold text-gray-900 mb-2'>Email Verified!</h2>
                         <p className='text-gray-500 mb-6'>{message}</p>
-                        <Link to="/login" className='inline-block w-full py-3 bg-[#6b4423] hover:bg-[#573619] text-white font-semibold rounded-lg transition-colors shadow-sm'>
-                            Continue to Login
+                        <p className='text-sm text-gray-400 mb-4'>Redirecting to home...</p>
+                        <Link to="/" className='inline-block w-full py-3 bg-[#6b4423] hover:bg-[#573619] text-white font-semibold rounded-lg transition-colors shadow-sm'>
+                            Continue to Home
                         </Link>
                     </div>
                 )}
