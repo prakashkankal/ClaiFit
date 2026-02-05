@@ -99,7 +99,7 @@ const orderSchema = new mongoose.Schema({
     status: {
         type: String,
         required: true,
-        enum: ['Order Created', 'Cutting Completed', 'Order Completed', 'Pending', 'In Progress', 'Completed', 'Cancelled', 'Delivered'],
+        enum: ['Order Created', 'Cutting Completed', 'Order Completed', 'Pending', 'In Progress', 'Completed', 'Cancelled', 'Delivered', 'Draft'],
         default: 'Order Created'
     },
     dueDate: {

@@ -36,6 +36,10 @@ const measurementPresetSchema = new mongoose.Schema({
         trim: true,
         default: ''
     },
+    basePrice: {
+        type: Number,
+        default: 0
+    },
     fields: [measurementFieldSchema],
     isDefault: {
         type: Boolean,

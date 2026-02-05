@@ -8,7 +8,6 @@ const RecentOrders = ({ tailorId }) => {
     const [orders, setOrders] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-    const [showingUpcoming, setShowingUpcoming] = useState(false);
     const [openMenuId, setOpenMenuId] = useState(null);
 
     const fetchOrders = async () => {
@@ -16,75 +15,16 @@ const RecentOrders = ({ tailorId }) => {
 
         try {
             setLoading(true);
-            const { data } = await axios.get(`${API_URL}/api/orders/${tailorId}`);
+            // Fetch recent 20 orders
+            const { data } = await axios.get(`${API_URL}/api/orders/${tailorId}?limit=20`);
             const allOrders = data.orders || [];
 
-            // Get today's date (ignore time component)
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
+            // Filter Drafts
+            const draftOrders = allOrders.filter(o => o.status === 'Draft');
+            const otherOrders = allOrders.filter(o => o.status !== 'Draft');
 
-            // PRIORITY 1 & 2: Orders due today OR overdue
-            const urgentOrders = allOrders.filter(order => {
-                // Exclude finished/cancelled orders
-                if (order.status === 'Delivered' || order.status === 'Cancelled') return false;
-
-                // Include if no due date (needs attention)
-                if (!order.dueDate) return true;
-
-                const dueDate = new Date(order.dueDate);
-                dueDate.setHours(0, 0, 0, 0);
-
-                // Include if due today or overdue
-                return dueDate.getTime() <= today.getTime();
-            });
-
-            // Sort urgent orders: overdue first, then due today
-            urgentOrders.sort((a, b) => {
-                const aDate = a.dueDate ? new Date(a.dueDate) : new Date();
-                const bDate = b.dueDate ? new Date(b.dueDate) : new Date();
-
-                aDate.setHours(0, 0, 0, 0);
-                bDate.setHours(0, 0, 0, 0);
-
-                return aDate.getTime() - bDate.getTime();
-            });
-
-            // Check if we have urgent orders
-            if (urgentOrders.length > 0) {
-                // Show urgent orders (today + overdue)
-                setOrders(urgentOrders.slice(0, 10));
-                setShowingUpcoming(false);
-            } else {
-                // PRIORITY 3: No urgent orders - show next upcoming orders
-                const upcomingOrders = allOrders.filter(order => {
-                    // Exclude finished/cancelled orders
-                    if (order.status === 'Delivered' || order.status === 'Cancelled') return false;
-
-                    // Only include orders with future due dates
-                    if (!order.dueDate) return false;
-
-                    const dueDate = new Date(order.dueDate);
-                    dueDate.setHours(0, 0, 0, 0);
-
-                    // Include only future dates
-                    return dueDate.getTime() > today.getTime();
-                });
-
-                // Sort by nearest due date first
-                upcomingOrders.sort((a, b) => {
-                    const aDate = new Date(a.dueDate);
-                    const bDate = new Date(b.dueDate);
-
-                    aDate.setHours(0, 0, 0, 0);
-                    bDate.setHours(0, 0, 0, 0);
-
-                    return aDate.getTime() - bDate.getTime();
-                });
-
-                // Show next 5 upcoming orders
-                setOrders(upcomingOrders.slice(0, 5));
-                setShowingUpcoming(upcomingOrders.length > 0);
-            }
+            // Combine: Drafts at top, then others (already sorted by createdAt desc from backend)
+            setOrders([...draftOrders, ...otherOrders]);
 
             setError(null);
         } catch (err) {
@@ -161,14 +101,21 @@ const RecentOrders = ({ tailorId }) => {
             'Order Completed': 'bg-green-100 text-green-700 border border-green-300',
             'Pending': 'bg-amber-100 text-amber-700 border border-amber-300',
             'In Progress': 'bg-blue-100 text-blue-700 border border-blue-300',
-            'Completed': 'bg-emerald-100 text-emerald-700 border border-emerald-300'
+            'Completed': 'bg-emerald-100 text-emerald-700 border border-emerald-300',
+            'Draft': 'bg-purple-100 text-purple-700 border border-purple-300',
+            'Delivered': 'bg-slate-100 text-slate-700 border border-slate-300',
+            'Cancelled': 'bg-red-100 text-red-700 border border-red-300'
         };
 
         return badges[status] || 'bg-slate-100 text-slate-700 border border-slate-300';
     };
 
     const handleCardClick = (order) => {
-        navigate(`/orders/${order._id}`);
+        if (order.status === 'Draft') {
+            navigate(`/orders/new?draftId=${order._id}`);
+        } else {
+            navigate(`/orders/${order._id}`);
+        }
     };
 
     const getInvoiceImageLink = (orderId) => `${API_URL}/api/orders/${orderId}/invoice-jpg`;
@@ -217,6 +164,33 @@ const RecentOrders = ({ tailorId }) => {
         window.open(whatsappUrl, '_blank');
     };
 
+    const handleCancelOrder = async (orderId) => {
+        if (window.confirm('Are you sure you want to cancel this order?')) {
+            try {
+                await axios.put(`${API_URL}/api/orders/${orderId}/status`, { status: 'Cancelled' });
+                // Optimistically update local state
+                setOrders(prev => prev.map(o => o._id === orderId ? { ...o, status: 'Cancelled' } : o));
+            } catch (err) {
+                console.error('Error cancelling order:', err);
+                alert('Failed to cancel order');
+            }
+        }
+    };
+
+    const handleDeleteDraft = async (e, orderId) => {
+        e.stopPropagation();
+        if (window.confirm('Are you sure you want to delete this draft?')) {
+            try {
+                await axios.delete(`${API_URL}/api/orders/${orderId}`);
+                // Remove from local state immediately
+                setOrders(prev => prev.filter(o => o._id !== orderId));
+            } catch (err) {
+                console.error('Error deleting draft:', err);
+                alert('Failed to delete draft');
+            }
+        }
+    };
+
     if (error) {
         return (
             <div className="bg-white/40 backdrop-blur-xl border border-white/60 rounded-3xl shadow-lg shadow-violet-500/5 p-6">
@@ -226,15 +200,14 @@ const RecentOrders = ({ tailorId }) => {
     }
 
     return (
-        <div className="bg-white/40 backdrop-blur-xl border border-white/60 rounded-3xl shadow-lg shadow-violet-500/5 overflow-hidden flex flex-col flex-1">
-            <div className="p-6 border-b border-white/40 flex justify-between items-center">
+        <div className="bg-white/40 backdrop-blur-xl border border-white/60 rounded-3xl shadow-lg shadow-violet-500/5 flex flex-col flex-1">
+            <div className="p-6 border-b border-white/40 flex justify-between items-center rounded-t-3xl">
                 <div>
                     <h3 className="text-xl font-bold text-slate-800">
-                        <span className="md:hidden">Orders needing attention</span>
-                        <span className="hidden md:inline">Today's Work</span>
+                        Recent Orders
                     </h3>
                     <p className="text-xs text-slate-500 mt-1">
-                        {showingUpcoming ? 'Upcoming Orders' : 'Orders needing attention'}
+                        Latest orders and drafts
                     </p>
                 </div>
                 <button
@@ -310,46 +283,73 @@ const RecentOrders = ({ tailorId }) => {
 
                                     {/* Actions Menu */}
                                     <div className="relative flex justify-end" onClick={(e) => e.stopPropagation()}>
-                                        <button
-                                            onClick={() => setOpenMenuId(openMenuId === order._id ? null : order._id)}
-                                            className="w-10 h-10 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center"
-                                            aria-label="Order actions"
-                                        >
-                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v.01M12 12v.01M12 18v.01" />
-                                            </svg>
-                                        </button>
-                                        {openMenuId === order._id && (
-                                            <div className="absolute right-0 top-12 z-20 w-44 rounded-xl border border-slate-200 bg-white shadow-lg p-1">
+                                        {order.status === 'Draft' ? (
+                                            <button
+                                                onClick={(e) => handleDeleteDraft(e, order._id)}
+                                                className="w-10 h-10 rounded-full bg-red-50 hover:bg-red-100 text-red-500 hover:text-red-600 flex items-center justify-center transition-colors"
+                                                aria-label="Delete Draft"
+                                                title="Delete Draft"
+                                            >
+                                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                </svg>
+                                            </button>
+                                        ) : (
+                                            <>
                                                 <button
-                                                    onClick={() => {
-                                                        handleSendInvoice(order);
-                                                        setOpenMenuId(null);
-                                                    }}
-                                                    disabled={!order.customerPhone}
-                                                    className="w-full text-left px-3 py-2 text-sm rounded-lg hover:bg-slate-50 disabled:text-slate-300"
+                                                    onClick={() => setOpenMenuId(openMenuId === order._id ? null : order._id)}
+                                                    className="w-10 h-10 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center"
+                                                    aria-label="Order actions"
                                                 >
-                                                    Send Invoice
+                                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v.01M12 12v.01M12 18v.01" />
+                                                    </svg>
                                                 </button>
-                                                <button
-                                                    onClick={() => {
-                                                        handleViewInvoice(order);
-                                                        setOpenMenuId(null);
-                                                    }}
-                                                    className="w-full text-left px-3 py-2 text-sm rounded-lg hover:bg-slate-50"
-                                                >
-                                                    View Invoice
-                                                </button>
-                                                <button
-                                                    onClick={() => {
-                                                        navigate(`/orders/${order._id}`);
-                                                        setOpenMenuId(null);
-                                                    }}
-                                                    className="w-full text-left px-3 py-2 text-sm rounded-lg hover:bg-slate-50"
-                                                >
-                                                    More Options
-                                                </button>
-                                            </div>
+                                                {openMenuId === order._id && (
+                                                    <div className="absolute right-0 top-12 z-20 w-44 rounded-xl border border-slate-200 bg-white shadow-lg p-1">
+                                                        <button
+                                                            onClick={() => {
+                                                                handleSendInvoice(order);
+                                                                setOpenMenuId(null);
+                                                            }}
+                                                            disabled={!order.customerPhone}
+                                                            className="w-full text-left px-3 py-2 text-sm rounded-lg hover:bg-slate-50 disabled:text-slate-300"
+                                                        >
+                                                            Send Invoice
+                                                        </button>
+                                                        <button
+                                                            onClick={() => {
+                                                                handleViewInvoice(order);
+                                                                setOpenMenuId(null);
+                                                            }}
+                                                            className="w-full text-left px-3 py-2 text-sm rounded-lg hover:bg-slate-50"
+                                                        >
+                                                            View Invoice
+                                                        </button>
+                                                        {['Delivered', 'Cancelled', 'Completed', 'Order Completed'].includes(order.status) ? (
+                                                            <button
+                                                                onClick={() => {
+                                                                    navigate(`/orders/${order._id}`);
+                                                                    setOpenMenuId(null);
+                                                                }}
+                                                                className="w-full text-left px-3 py-2 text-sm rounded-lg hover:bg-slate-50"
+                                                            >
+                                                                More Options
+                                                            </button>
+                                                        ) : (
+                                                            <button
+                                                                onClick={() => {
+                                                                    handleCancelOrder(order._id);
+                                                                    setOpenMenuId(null);
+                                                                }}
+                                                                className="w-full text-left px-3 py-2 text-sm rounded-lg hover:bg-red-50 text-red-600"
+                                                            >
+                                                                Cancel Order
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </>
                                         )}
                                     </div>
                                 </div>
@@ -358,7 +358,7 @@ const RecentOrders = ({ tailorId }) => {
                     </div>
 
                     {/* Mobile View: Compact List Layout */}
-                    <div className="md:hidden flex flex-col divide-y divide-gray-100 bg-white">
+                    <div className="md:hidden flex flex-col divide-y divide-gray-100 bg-white rounded-b-3xl">
                         {orders.map((order) => {
                             const dueDateInfo = getDueDateDisplay(order.dueDate);
                             return (
@@ -367,7 +367,6 @@ const RecentOrders = ({ tailorId }) => {
                                     onClick={() => handleCardClick(order)}
                                     className="flex items-center justify-between p-3 active:bg-slate-50 transition-colors cursor-pointer min-h-[72px]"
                                 >
-                                    {/* Left: ID & Customer */}
                                     {/* Left: Customer & ID */}
                                     <div className="flex flex-col min-w-0 flex-1 pr-3">
                                         <p className="text-base font-bold text-slate-800 truncate mb-0.5">
@@ -402,46 +401,72 @@ const RecentOrders = ({ tailorId }) => {
                                         }}
                                     >
                                         <div className="relative">
-                                            <button
-                                                onClick={() => setOpenMenuId(openMenuId === order._id ? null : order._id)}
-                                                className="w-10 h-10 bg-slate-100 text-slate-600 rounded-full flex items-center justify-center hover:bg-slate-200 active:scale-95 transition-all outline-none"
-                                                aria-label="Order actions"
-                                            >
-                                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v.01M12 12v.01M12 18v.01" />
-                                                </svg>
-                                            </button>
-                                            {openMenuId === order._id && (
-                                                <div className="absolute right-0 top-12 z-20 w-44 rounded-xl border border-slate-200 bg-white shadow-lg p-1">
+                                            {order.status === 'Draft' ? (
+                                                <button
+                                                    onClick={(e) => handleDeleteDraft(e, order._id)}
+                                                    className="w-10 h-10 bg-red-50 text-red-500 rounded-full flex items-center justify-center hover:bg-red-100 active:scale-95 transition-all outline-none"
+                                                    aria-label="Delete Draft"
+                                                >
+                                                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                    </svg>
+                                                </button>
+                                            ) : (
+                                                <>
                                                     <button
-                                                        onClick={() => {
-                                                            handleSendInvoice(order);
-                                                            setOpenMenuId(null);
-                                                        }}
-                                                        disabled={!order.customerPhone}
-                                                        className="w-full text-left px-3 py-2 text-sm rounded-lg hover:bg-slate-50 disabled:text-slate-300"
+                                                        onClick={() => setOpenMenuId(openMenuId === order._id ? null : order._id)}
+                                                        className="w-10 h-10 bg-slate-100 text-slate-600 rounded-full flex items-center justify-center hover:bg-slate-200 active:scale-95 transition-all outline-none"
+                                                        aria-label="Order actions"
                                                     >
-                                                        Send Invoice
+                                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v.01M12 12v.01M12 18v.01" />
+                                                        </svg>
                                                     </button>
-                                                    <button
-                                                        onClick={() => {
-                                                            handleViewInvoice(order);
-                                                            setOpenMenuId(null);
-                                                        }}
-                                                        className="w-full text-left px-3 py-2 text-sm rounded-lg hover:bg-slate-50"
-                                                    >
-                                                        View Invoice
-                                                    </button>
-                                                    <button
-                                                        onClick={() => {
-                                                            navigate(`/orders/${order._id}`);
-                                                            setOpenMenuId(null);
-                                                        }}
-                                                        className="w-full text-left px-3 py-2 text-sm rounded-lg hover:bg-slate-50"
-                                                    >
-                                                        More Options
-                                                    </button>
-                                                </div>
+                                                    {openMenuId === order._id && (
+                                                        <div className="absolute right-0 top-12 z-20 w-44 rounded-xl border border-slate-200 bg-white shadow-lg p-1">
+                                                            <button
+                                                                onClick={() => {
+                                                                    handleSendInvoice(order);
+                                                                    setOpenMenuId(null);
+                                                                }}
+                                                                disabled={!order.customerPhone}
+                                                                className="w-full text-left px-3 py-2 text-sm rounded-lg hover:bg-slate-50 disabled:text-slate-300"
+                                                            >
+                                                                Send Invoice
+                                                            </button>
+                                                            <button
+                                                                onClick={() => {
+                                                                    handleViewInvoice(order);
+                                                                    setOpenMenuId(null);
+                                                                }}
+                                                                className="w-full text-left px-3 py-2 text-sm rounded-lg hover:bg-slate-50"
+                                                            >
+                                                                View Invoice
+                                                            </button>
+                                                            {['Delivered', 'Cancelled', 'Completed', 'Order Completed'].includes(order.status) ? (
+                                                                <button
+                                                                    onClick={() => {
+                                                                        navigate(`/orders/${order._id}`);
+                                                                        setOpenMenuId(null);
+                                                                    }}
+                                                                    className="w-full text-left px-3 py-2 text-sm rounded-lg hover:bg-slate-50"
+                                                                >
+                                                                    More Options
+                                                                </button>
+                                                            ) : (
+                                                                <button
+                                                                    onClick={() => {
+                                                                        handleCancelOrder(order._id);
+                                                                        setOpenMenuId(null);
+                                                                    }}
+                                                                    className="w-full text-left px-3 py-2 text-sm rounded-lg hover:bg-red-50 text-red-600"
+                                                                >
+                                                                    Cancel Order
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                </>
                                             )}
                                         </div>
                                     </div>
@@ -450,10 +475,9 @@ const RecentOrders = ({ tailorId }) => {
                         })}
                     </div>
                 </>
-            )
-            }
+            )}
         </div>
-    )
-}
+    );
+};
 
-export default RecentOrders
+export default RecentOrders;

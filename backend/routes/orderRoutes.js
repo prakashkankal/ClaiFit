@@ -201,6 +201,41 @@ router.put('/:orderId/notes', async (req, res) => {
     }
 });
 
+// @desc    Update order measurements
+// @route   PUT /api/orders/:orderId/measurements
+// @access  Private
+router.put('/:orderId/measurements', async (req, res) => {
+    try {
+        const { orderId } = req.params;
+        const { measurements, orderItems } = req.body;
+
+        if (!mongoose.Types.ObjectId.isValid(orderId)) {
+            return res.status(400).json({ message: 'Invalid order ID format' });
+        }
+
+        const order = await Order.findById(orderId);
+        if (!order) {
+            return res.status(404).json({ message: 'Order not found' });
+        }
+
+        if (orderItems && orderItems.length > 0) {
+            order.orderItems = orderItems;
+        }
+
+        if (measurements) {
+            order.measurements = measurements;
+        }
+
+        // We use save() to ensure validations run properly on subdocuments if any
+        const updatedOrder = await order.save();
+        res.json({ message: 'Measurements updated successfully', order: updatedOrder });
+
+    } catch (error) {
+        console.error('Update measurements error:', error);
+        res.status(500).json({ message: 'Error updating measurements', error: error.message });
+    }
+});
+
 // @desc    Create a new order
 // @route   POST /api/orders
 // @access  Private
@@ -221,7 +256,8 @@ router.post('/', async (req, res) => {
             orderType,
             description,
             measurements,
-            price
+            price,
+            status // Destructure status
         } = req.body;
 
         // Determine if this is a multi-item or legacy single-item order
@@ -236,7 +272,7 @@ router.post('/', async (req, res) => {
             dueDate,
             notes: notes || '',
             advancePayment: advancePayment || 0,
-            status: 'Order Created'
+            status: status || 'Order Created'
         };
 
         if (isMultiItem) {
@@ -325,6 +361,7 @@ router.put('/:orderId/status', async (req, res) => {
 
         // Validate status transitions
         const validTransitions = {
+            'Draft': ['Order Created', 'Cancelled'],
             'Order Created': ['Cutting Completed', 'Cancelled'],
             'Cutting Completed': ['Order Completed', 'Order Created', 'Cancelled'],
             'Order Completed': ['Delivered', 'Cutting Completed', 'Cancelled'],
@@ -389,6 +426,81 @@ router.put('/:orderId/status', async (req, res) => {
     } catch (error) {
         console.error('Update order status error:', error);
         res.status(500).json({ message: 'Error updating order status', error: error.message });
+    }
+});
+
+// @desc    Update an order (Full update for Draft conversion or editing)
+// @route   PUT /api/orders/:orderId
+// @access  Private
+router.put('/:orderId', async (req, res) => {
+    try {
+        const { orderId } = req.params;
+        const {
+            customerName,
+            customerEmail,
+            customerPhone,
+            dueDate,
+            notes,
+            advancePayment,
+            orderItems,
+            status,
+            orderType,       // Legacy
+            description,     // Legacy
+            measurements,    // Legacy
+            price
+        } = req.body;
+
+        const order = await Order.findById(orderId);
+        if (!order) {
+            return res.status(404).json({ message: 'Order not found' });
+        }
+
+        // Determine if this is a multi-item or legacy single-item update
+        const isMultiItem = orderItems && orderItems.length > 0;
+
+        // Update fields
+        order.customerName = customerName;
+        order.customerEmail = customerEmail;
+        order.customerPhone = customerPhone;
+        order.dueDate = dueDate;
+        order.notes = notes || '';
+        order.advancePayment = advancePayment || 0;
+
+        if (status) {
+            // Validate transition if changing from Draft
+            if (order.status === 'Draft' && status !== 'Draft' && status !== 'Order Created' && status !== 'Cancelled') {
+                return res.status(400).json({ message: 'Invalid status transition from Draft' });
+            }
+            order.status = status;
+        }
+
+        if (isMultiItem) {
+            order.orderItems = orderItems;
+            // Recalculate or use provided price
+            const totalPrice = orderItems.reduce((sum, item) => sum + (item.totalPrice || 0), 0);
+            order.price = totalPrice;
+            // Clear legacy fields if switching
+            order.orderType = undefined;
+            order.measurements = undefined;
+        } else {
+            // Legacy update
+            if (orderType) order.orderType = orderType;
+            if (description !== undefined) order.description = description;
+            if (measurements) order.measurements = measurements;
+            if (price) order.price = price;
+        }
+
+        // Validate Advance
+        if (Number(order.advancePayment) > Number(order.price)) {
+            return res.status(400).json({ message: 'Advance payment cannot be greater than total amount.' });
+        }
+
+        const updatedOrder = await order.save();
+        res.json(updatedOrder);
+
+    } catch (error) {
+        console.error('Update order error:', error);
+        res.status(500).json({ message: 'Error updating order', error: error.message });
     }
 });
 

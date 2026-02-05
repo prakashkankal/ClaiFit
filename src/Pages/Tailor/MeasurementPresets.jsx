@@ -12,12 +12,14 @@ const MeasurementPresets = () => {
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [editingPreset, setEditingPreset] = useState(null);
     const [selectedPreset, setSelectedPreset] = useState(null);
-    const [showActionSheet, setShowActionSheet] = useState(false);
+    const [showDetailView, setShowDetailView] = useState(false);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+    const [travelDirection, setTravelDirection] = useState('right');
 
     const [formData, setFormData] = useState({
         name: '',
         description: '',
+        basePrice: '',
         fields: [
             { label: '', unit: 'inches', required: false }
         ]
@@ -106,6 +108,7 @@ const MeasurementPresets = () => {
         setFormData({
             name: '',
             description: '',
+            basePrice: '',
             fields: [{ _id: generateId(), label: '', unit: 'inches', required: false }]
         });
         setShowCreateModal(true);
@@ -116,6 +119,7 @@ const MeasurementPresets = () => {
         setFormData({
             name: preset.name,
             description: preset.description,
+            basePrice: preset.basePrice || '',
             fields: preset.fields.map(f => ({ ...f, _id: f._id || generateId() }))
         });
         setShowCreateModal(true);
@@ -127,6 +131,7 @@ const MeasurementPresets = () => {
         setFormData({
             name: `${preset.name} (Copy)`,
             description: preset.description,
+            basePrice: preset.basePrice || '',
             fields: preset.fields.map(f => ({ ...f, _id: generateId(), label: f.label, unit: f.unit, required: f.required }))
         });
         setShowCreateModal(true);
@@ -221,19 +226,28 @@ const MeasurementPresets = () => {
                 return;
             }
 
+            let savedPreset;
             if (editingPreset) {
                 // Update existing
-                await axios.put(`${API_URL}/api/presets/${editingPreset._id}`, {
+                const { data } = await axios.put(`${API_URL}/api/presets/${editingPreset._id}`, {
                     name: formData.name,
                     description: formData.description,
+                    basePrice: Number(formData.basePrice) || 0,
                     fields: validFields
                 });
+                savedPreset = data.preset;
+
+                // If we were editing, go back to detail view with updated data
+                setSelectedPreset(savedPreset);
+                setTravelDirection('left');
+                setShowDetailView(true);
             } else {
                 // Create new
                 await axios.post(`${API_URL}/api/presets`, {
                     tailorId: tailorData._id,
                     name: formData.name,
                     description: formData.description,
+                    basePrice: Number(formData.basePrice) || 0,
                     fields: validFields
                 });
             }
@@ -250,7 +264,6 @@ const MeasurementPresets = () => {
         try {
             await axios.delete(`${API_URL}/api/presets/${selectedPreset._id}`);
             setShowDeleteConfirm(false);
-            setShowActionSheet(false);
             fetchPresets();
         } catch (error) {
             console.error('Error deleting preset:', error);
@@ -260,7 +273,8 @@ const MeasurementPresets = () => {
 
     const handlePresetClick = (preset) => {
         setSelectedPreset(preset);
-        setShowActionSheet(true);
+        setTravelDirection('right');
+        setShowDetailView(true);
     };
 
     if (!tailorData) {
@@ -331,102 +345,78 @@ const MeasurementPresets = () => {
                         </div>
                     </div>
                 ) : (
-                    <>
-                        {/* Mobile: Compact List */}
-                        <div className="lg:hidden px-4 pt-4 space-y-3">
+                    <div className="max-w-7xl mx-auto px-4 md:px-8 pb-20">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
                             {presets.map(preset => (
                                 <button
                                     key={preset._id}
                                     onClick={() => handlePresetClick(preset)}
-                                    className="w-full bg-white border border-gray-200 rounded-xl p-4 text-left hover:bg-slate-50 active:bg-slate-100 transition-colors"
+                                    className="group relative flex flex-col items-start w-full bg-white rounded-2xl p-4 text-left border border-slate-100 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 overflow-hidden"
                                 >
-                                    <div className="flex items-start justify-between mb-2">
-                                        <div className="flex-1 min-w-0">
-                                            <h3 className="text-base font-bold text-slate-800 truncate">{preset.name}</h3>
-                                            {preset.isDefault && (
-                                                <span className="inline-block mt-1 px-2 py-0.5 bg-blue-100 text-blue-700 text-xs font-semibold rounded">
-                                                    Default
+                                    {/* Decorative Background Gradient */}
+                                    <div className="absolute top-0 right-0 w-32 h-32 bg-linear-to-bl from-orange-50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-bl-full pointer-events-none" />
+
+                                    {/* Header Section */}
+                                    <div className="w-full flex items-start justify-between mb-2 relative z-10">
+                                        <div className="w-10 h-10 bg-orange-50 text-[#6b4423] rounded-xl flex items-center justify-center shadow-inner group-hover:scale-110 transition-transform duration-300">
+                                            {preset.name.toLowerCase().includes('shirt') ? (
+                                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" /></svg> // Placeholder for generic garment
+                                            ) : (
+                                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg> // Ruler/Tape
+                                            )}
+                                        </div>
+                                        {preset.isDefault ? (
+                                            <span className="px-2 py-0.5 bg-blue-50 text-blue-600 text-[10px] font-bold uppercase tracking-wider rounded-full border border-blue-100">
+                                                Default
+                                            </span>
+                                        ) : (
+                                            <span className="px-2 py-0.5 bg-slate-50 text-slate-500 text-[10px] font-bold uppercase tracking-wider rounded-full border border-slate-100 group-hover:bg-white transition-colors">
+                                                Custom
+                                            </span>
+                                        )}
+                                    </div>
+
+                                    {/* Text Content */}
+                                    <div className="mb-2 relative z-10 w-full">
+                                        <h3 className="text-base font-bold text-slate-800 mb-0.5 group-hover:text-[#6b4423] transition-colors line-clamp-1">
+                                            {preset.name}
+                                        </h3>
+                                        {preset.description && (
+                                            <p className="text-xs text-slate-500 line-clamp-2">
+                                                {preset.description}
+                                            </p>
+                                        )}
+                                        {preset.basePrice > 0 && (
+                                            <div className="mt-1 inline-flex items-center px-1.5 py-0.5 bg-green-50 text-green-700 text-[10px] font-bold rounded border border-green-100">
+                                                ₹{preset.basePrice} Base Price
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Fields Summary */}
+                                    <div className="w-full mt-auto pt-3 border-t border-slate-50 relative z-10">
+                                        <div className="flex items-center justify-between mb-2">
+                                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                                                {preset.fields.length} Measurements
+                                            </span>
+                                        </div>
+                                        <div className="flex flex-wrap gap-1 h-6 overflow-hidden">
+                                            {preset.fields.slice(0, 3).map((field, i) => (
+                                                <span key={i} className="px-1.5 py-0.5 bg-slate-50 border border-slate-100 rounded text-[10px] font-semibold text-slate-600">
+                                                    {field.label}
+                                                </span>
+                                            ))}
+                                            {preset.fields.length > 3 && (
+                                                <span className="px-1.5 py-0.5 bg-slate-50 border border-slate-100 rounded text-[10px] font-semibold text-slate-500">
+                                                    +{preset.fields.length - 3}
                                                 </span>
                                             )}
                                         </div>
-                                        <svg className="w-5 h-5 text-slate-400 shrink-0 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                                        </svg>
-                                    </div>
-                                    <p className="text-xs text-slate-500 mb-2">{preset.fields.length} fields</p>
-                                    <div className="flex flex-wrap gap-1.5">
-                                        {preset.fields.slice(0, 3).map((field, idx) => (
-                                            <span key={idx} className="px-2 py-1 bg-slate-100 text-slate-700 text-xs rounded">
-                                                {field.label}
-                                            </span>
-                                        ))}
-                                        {preset.fields.length > 3 && (
-                                            <span className="px-2 py-1 bg-slate-100 text-slate-700 text-xs rounded">
-                                                +{preset.fields.length - 3} more
-                                            </span>
-                                        )}
                                     </div>
                                 </button>
                             ))}
-                            {/* Explicit Spacer for Mobile Scrolling */}
-                            <div className="lg:hidden h-32 w-full"></div>
                         </div>
-
-                        {/* Desktop: Card Grid (unchanged) */}
-                        <div className="hidden lg:block max-w-7xl mx-auto px-6 md:px-8">
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                {presets.map(preset => (
-                                    <div key={preset._id} className="bg-white border-2 border-gray-200 rounded-2xl p-6 hover:shadow-lg transition-shadow">
-                                        <div className="flex items-start justify-between mb-3">
-                                            <div className="flex-1">
-                                                <h3 className="text-lg font-bold text-slate-800 mb-1">{preset.name}</h3>
-                                                {preset.isDefault && (
-                                                    <span className="inline-block px-2 py-1 bg-blue-100 text-blue-700 text-xs font-semibold rounded">
-                                                        Default
-                                                    </span>
-                                                )}
-                                            </div>
-                                        </div>
-                                        {preset.description && (
-                                            <p className="text-sm text-slate-600 mb-4">{preset.description}</p>
-                                        )}
-                                        <div className="mb-4">
-                                            <p className="text-xs font-semibold text-slate-500 uppercase mb-2">Fields ({preset.fields.length})</p>
-                                            <div className="flex flex-wrap gap-2">
-                                                {preset.fields.slice(0, 6).map((field, idx) => (
-                                                    <span key={idx} className="px-2 py-1 bg-slate-100 text-slate-700 text-xs rounded">
-                                                        {field.label}
-                                                    </span>
-                                                ))}
-                                                {preset.fields.length > 6 && (
-                                                    <span className="px-2 py-1 bg-slate-100 text-slate-700 text-xs rounded">
-                                                        +{preset.fields.length - 6} more
-                                                    </span>
-                                                )}
-                                            </div>
-                                        </div>
-                                        <div className="flex gap-2">
-                                            <button
-                                                onClick={() => handleOpenEdit(preset)}
-                                                className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
-                                            >
-                                                Edit
-                                            </button>
-                                            <button
-                                                onClick={() => {
-                                                    setSelectedPreset(preset);
-                                                    setShowDeleteConfirm(true);
-                                                }}
-                                                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-lg transition-colors"
-                                            >
-                                                Delete
-                                            </button>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    </>
+                    </div>
                 )}
 
                 {/* Mobile FAB - Create Preset */}
@@ -439,62 +429,121 @@ const MeasurementPresets = () => {
                     </svg>
                 </button>
 
-                {/* Mobile Action Sheet */}
-                {showActionSheet && selectedPreset && (
-                    <div className="lg:hidden fixed inset-0 bg-black/50 z-50 flex items-end" onClick={() => setShowActionSheet(false)}>
-                        <div className="bg-white rounded-t-3xl w-full p-6 space-y-1 animate-slide-up" onClick={(e) => e.stopPropagation()}>
-                            <div className="w-12 h-1 bg-slate-300 rounded-full mx-auto mb-4"></div>
-                            <h3 className="text-lg font-bold text-slate-800 mb-4">{selectedPreset.name}</h3>
-
-                            {/* Edit */}
+                {/* Read-Only Detail View Modal */}
+                {showDetailView && selectedPreset && (
+                    <div className={`fixed inset-0 bg-[#f5f5f0] z-50 flex flex-col overflow-hidden ${travelDirection === 'left' ? 'animate-slide-in-left' : 'animate-slide-in-right'}`}>
+                        {/* Header */}
+                        <div className="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between shadow-sm z-10">
                             <button
-                                onClick={() => handleOpenEdit(selectedPreset)}
-                                className="w-full px-4 py-3 text-left text-slate-700 hover:bg-slate-50 active:bg-slate-100 rounded-xl transition-colors"
+                                onClick={() => setShowDetailView(false)}
+                                className="p-2 -ml-2 text-slate-700 active:bg-slate-100 rounded-full transition-colors"
                             >
-                                <div className="flex items-center gap-3">
-                                    <svg className="w-5 h-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                    </svg>
-                                    <span className="font-medium">Edit Preset</span>
-                                </div>
+                                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" />
+                                </svg>
                             </button>
-
-                            {/* Duplicate */}
-                            <button
-                                onClick={() => handleDuplicate(selectedPreset)}
-                                className="w-full px-4 py-3 text-left text-slate-700 hover:bg-slate-50 active:bg-slate-100 rounded-xl transition-colors"
-                            >
-                                <div className="flex items-center gap-3">
-                                    <svg className="w-5 h-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                                    </svg>
-                                    <span className="font-medium">Duplicate Preset</span>
-                                </div>
-                            </button>
-
-                            {/* Delete */}
+                            <h2 className="text-lg font-bold text-slate-800">Preset Details</h2>
                             <button
                                 onClick={() => {
-                                    setShowActionSheet(false);
-                                    setShowDeleteConfirm(true);
+                                    setShowDetailView(false);
+                                    setTravelDirection('right');
+                                    handleOpenEdit(selectedPreset);
                                 }}
-                                disabled={selectedPreset.isDefault}
-                                className="w-full px-4 py-3 text-left text-red-600 hover:bg-red-50 active:bg-red-100 rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="text-[#6b4423] font-semibold text-sm"
                             >
-                                <div className="flex items-center gap-3">
-                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                    </svg>
-                                    <span className="font-medium">Delete Preset</span>
-                                </div>
+                                Edit
                             </button>
+                        </div>
 
-                            <button
-                                onClick={() => setShowActionSheet(false)}
-                                className="w-full px-4 py-3 text-slate-500 font-medium mt-2"
-                            >
-                                Cancel
-                            </button>
+                        {/* Content */}
+                        <div className="flex-1 overflow-y-auto p-4 md:p-8">
+                            <div className="max-w-2xl mx-auto space-y-6">
+                                {/* Header Card */}
+                                <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+                                    <div className="flex items-start justify-between">
+                                        <div>
+                                            <h1 className="text-2xl font-bold text-slate-900 mb-2">{selectedPreset.name}</h1>
+                                            {selectedPreset.description && (
+                                                <p className="text-slate-600 mb-3 leading-relaxed">{selectedPreset.description}</p>
+                                            )}
+                                            {selectedPreset.basePrice > 0 && (
+                                                <div className="inline-flex items-center px-3 py-1.5 bg-green-50 text-green-700 font-bold rounded-lg border border-green-100 mb-2">
+                                                    Base Price: ₹{selectedPreset.basePrice}
+                                                </div>
+                                            )}
+                                        </div>
+                                        {selectedPreset.isDefault && (
+                                            <span className="px-3 py-1 bg-blue-100 text-blue-700 text-xs font-bold uppercase tracking-wider rounded-full">
+                                                Default
+                                            </span>
+                                        )}
+                                    </div>
+                                    <div className="flex items-center justify-between mt-4 text-xs text-slate-500 font-medium uppercase tracking-widest border-t border-gray-100 pt-4">
+                                        <div className="flex items-center gap-1">
+                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
+                                            {selectedPreset.fields.length} Fields
+                                        </div>
+                                        <button
+                                            onClick={() => {
+                                                setShowDetailView(false);
+                                                setShowDeleteConfirm(true);
+                                            }}
+                                            className="text-red-500 hover:text-red-700 p-1"
+                                            title="Delete Preset"
+                                        >
+                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* Fields List */}
+                                <div>
+                                    <h3 className="text-sm font-bold text-slate-500 uppercase tracking-widest mb-3 px-1">Measurements List</h3>
+                                    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden divide-y divide-gray-100">
+                                        {selectedPreset.fields.map((field, idx) => (
+                                            <div key={idx} className="p-4 flex items-center justify-between hover:bg-slate-50 transition-colors">
+                                                <div className="flex items-center gap-4">
+                                                    <span className="text-slate-300 font-bold text-sm w-4">{idx + 1}</span>
+                                                    <div>
+                                                        <p className="text-base font-bold text-slate-800">{field.label}</p>
+                                                        <p className="text-xs text-slate-500 uppercase font-medium">{field.unit === 'any' ? 'Any Unit' : field.unit}</p>
+                                                    </div>
+                                                </div>
+                                                {field.required && (
+                                                    <span className="text-[10px] text-amber-600 font-bold uppercase tracking-widest bg-amber-50 px-2 py-1 rounded-full">
+                                                        Required
+                                                    </span>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* Actions Footer for Mobile */}
+                                <div className="pt-4 pb-8 space-y-3">
+                                    <button
+                                        onClick={() => {
+                                            setShowDetailView(false);
+                                            handleDuplicate(selectedPreset);
+                                        }}
+                                        className="w-full flex items-center justify-center gap-2 py-3.5 bg-white border border-slate-200 text-slate-700 font-bold rounded-xl active:bg-slate-50 shadow-sm"
+                                    >
+                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+                                        Duplicate Preset
+                                    </button>
+
+                                    <button
+                                        onClick={() => {
+                                            setShowDetailView(false);
+                                            setShowDeleteConfirm(true);
+                                        }}
+                                        className="w-full flex items-center justify-center gap-2 py-3.5 bg-red-50 text-red-600 font-bold rounded-xl active:bg-red-100 border border-red-100"
+                                    >
+                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                        Delete Preset
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 )}
@@ -534,72 +583,97 @@ const MeasurementPresets = () => {
                 {showCreateModal && (
                     <>
                         {/* MOBILE: Full-screen Edit Page */}
-                        <div className="lg:hidden fixed inset-0 bg-[#f5f5f0] z-50 flex flex-col overflow-hidden">
+                        <div className={`lg:hidden fixed inset-0 bg-[#f5f5f0] z-50 flex flex-col overflow-hidden ${travelDirection === 'right' ? 'animate-slide-in-right' : 'animate-slide-in-left'}`}>
                             {/* Sticky App Bar */}
-                            <div className="sticky top-0 bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between shadow-sm z-10">
+                            <div className="sticky top-0 bg-white/90 backdrop-blur-md border-b border-gray-100 px-4 py-3 flex items-center justify-between shadow-sm z-20">
                                 <div className="flex items-center gap-3">
                                     <button
-                                        onClick={() => setShowCreateModal(false)}
-                                        className="p-1 -ml-1 text-slate-700 active:bg-slate-100 rounded-full transition-colors"
+                                        onClick={() => {
+                                            setShowCreateModal(false);
+                                            if (editingPreset) {
+                                                setTravelDirection('left');
+                                                setShowDetailView(true);
+                                            }
+                                        }}
+                                        className="p-2 -ml-2 text-slate-500 hover:text-slate-800 active:bg-slate-100 rounded-full transition-colors"
                                     >
                                         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" />
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                                         </svg>
                                     </button>
-                                    <h2 className="text-lg font-bold text-slate-800">
+                                    <h2 className="text-lg font-bold text-slate-800 tracking-tight">
                                         {editingPreset ? 'Edit Preset' : 'New Preset'}
                                     </h2>
                                 </div>
                                 <button
                                     onClick={handleSavePreset}
-                                    className="px-4 py-2 bg-[#6b4423] text-white text-sm font-bold rounded-full active:scale-95 transition-transform"
+                                    className="px-5 py-2 bg-[#6b4423] hover:bg-[#5a391d] text-white text-sm font-bold rounded-xl shadow-lg shadow-orange-900/10 active:scale-95 transition-all"
                                 >
                                     Save
                                 </button>
                             </div>
 
                             {/* Scrollable Form Content */}
-                            <div className="flex-1 overflow-y-auto pb-32">
+                            <div className="flex-1 overflow-y-auto pb-32 bg-[#f8f9fa]">
                                 {/* Basic Info Section */}
-                                <div className="p-4 space-y-4">
-                                    <div className="space-y-1.5">
-                                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-1">Preset Name *</label>
-                                        <input
-                                            type="text"
-                                            value={formData.name}
-                                            onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                                            className="w-full px-4 py-3.5 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#6b4423] text-sm"
-                                            placeholder="e.g. Shirt, Suit, Pant"
-                                        />
-                                    </div>
+                                <div className="p-4 space-y-6">
+                                    <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 space-y-5">
+                                        <div className="space-y-1.5">
+                                            <label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest pl-1">Preset Name <span className="text-red-500">*</span></label>
+                                            <input
+                                                type="text"
+                                                value={formData.name}
+                                                onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                                                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#6b4423]/20 focus:border-[#6b4423] transition-all text-sm font-medium text-slate-800 placeholder:text-slate-400"
+                                                placeholder="e.g. Shirt, Suit, Pant"
+                                            />
+                                        </div>
 
-                                    <div className="space-y-1.5">
-                                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-1">Description (Optional)</label>
-                                        <textarea
-                                            value={formData.description}
-                                            onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                                            className="w-full px-4 py-3.5 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#6b4423] text-sm resize-none"
-                                            rows="2"
-                                            placeholder="Short details about this template..."
-                                        />
+                                        <div className="space-y-1.5">
+                                            <label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest pl-1">Description</label>
+                                            <textarea
+                                                value={formData.description}
+                                                onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                                                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#6b4423]/20 focus:border-[#6b4423] transition-all text-sm font-medium text-slate-800 placeholder:text-slate-400 resize-none"
+                                                rows="2"
+                                                placeholder="Short details about this template..."
+                                            />
+                                        </div>
+
+                                        <div className="space-y-1.5">
+                                            <label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest pl-1">Base Price (₹)</label>
+                                            <div className="relative">
+                                                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                                                    <span className="text-slate-400 font-bold">₹</span>
+                                                </div>
+                                                <input
+                                                    type="number"
+                                                    value={formData.basePrice}
+                                                    onChange={(e) => setFormData(prev => ({ ...prev, basePrice: e.target.value }))}
+                                                    className="w-full pl-8 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#6b4423]/20 focus:border-[#6b4423] transition-all text-sm font-medium text-slate-800 placeholder:text-slate-400"
+                                                    placeholder="0"
+                                                />
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
 
                                 {/* Measurement Fields List */}
                                 {/* Measurement Fields List */}
-                                <div className="mt-2">
-                                    <div className="px-5 mb-2 flex items-center justify-between">
-                                        <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest">Measurement Fields</h3>
-                                        <span className="text-[10px] font-medium text-slate-400">{formData.fields.length} Total</span>
+                                <div className="mt-2 px-4">
+                                    <div className="mb-3 flex items-end justify-between px-1">
+                                        <h3 className="text-xs font-extrabold text-slate-400 uppercase tracking-widest">Measurement Fields</h3>
+                                        <span className="text-[10px] font-semibold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">{formData.fields.length} Fields</span>
                                     </div>
 
-                                    <div className="bg-white border-y border-slate-100">
+                                    <div className="space-y-3">
                                         {formData.fields.map((field, index) => {
                                             const isExpanded = selectedPreset?.expandedIndex === index;
                                             return (
                                                 <div
                                                     key={field._id || index}
-                                                    className={`border-b border-slate-50 last:border-0 transition-all ${activeDragIndex === index ? 'bg-amber-50' : ''}`}
+                                                    className={`bg-white rounded-xl border transition-all duration-300 overflow-hidden ${isExpanded ? 'border-[#6b4423] ring-1 ring-[#6b4423]/10 shadow-lg' : 'border-slate-100 shadow-sm'
+                                                        } ${activeDragIndex === index ? 'opacity-50 border-dashed border-amber-400 scale-95' : ''}`}
                                                     draggable={true}
                                                     onDragStart={(e) => handleDragStart(e, index)}
                                                     onDragEnter={(e) => handleDragEnter(e, index)}
@@ -609,88 +683,94 @@ const MeasurementPresets = () => {
                                                     data-index={index}
                                                 >
                                                     {/* Row Container */}
-                                                    <div className="flex w-full items-center">
-                                                        {/* Drag Handle - Touch Target */}
+                                                    <div className="flex w-full items-stretch">
+                                                        {/* Drag Handle */}
                                                         <div
-                                                            className="w-12 h-16 flex items-center justify-center text-slate-300 cursor-grab active:cursor-grabbing touch-none"
+                                                            className={`w-10 flex items-center justify-center cursor-grab active:cursor-grabbing touch-none ${isExpanded ? 'bg-orange-50/50' : 'bg-slate-50'}`}
                                                             onTouchStart={(e) => { e.stopPropagation(); handleTouchStart(index); }}
                                                             onTouchMove={handleTouchMove}
                                                             onTouchEnd={handleTouchEnd}
                                                         >
-                                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
-                                                            </svg>
+                                                            <div className="flex flex-col gap-0.5 opacity-30">
+                                                                <div className="w-1 h-1 rounded-full bg-slate-800"></div>
+                                                                <div className="w-1 h-1 rounded-full bg-slate-800"></div>
+                                                                <div className="w-1 h-1 rounded-full bg-slate-800"></div>
+                                                            </div>
                                                         </div>
 
                                                         {/* Main Content Button */}
                                                         <button
                                                             onClick={() => setSelectedPreset(prev => ({ ...prev, expandedIndex: isExpanded ? -1 : index }))}
-                                                            className="flex-1 pr-5 py-4 flex items-center justify-between active:bg-slate-50 transition-colors bg-transparent border-none appearance-none cursor-pointer"
+                                                            className="flex-1 px-4 py-4 flex items-center justify-between text-left transition-colors bg-white hover:bg-slate-50/50"
                                                         >
-                                                            <div className="flex items-center gap-3 overflow-hidden">
-                                                                <div className="w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center shrink-0">
-                                                                    <span className="text-xs font-bold text-slate-500">{index + 1}</span>
+                                                            <div className="min-w-0 pr-4">
+                                                                <div className="flex items-center gap-2 mb-1">
+                                                                    <span className="text-[10px] font-bold text-slate-300">#{index + 1}</span>
+                                                                    {field.required && (
+                                                                        <span className="px-1.5 py-0.5 rounded-[4px] bg-red-50 text-red-600 text-[9px] font-bold uppercase tracking-wider leading-none">
+                                                                            Req
+                                                                        </span>
+                                                                    )}
                                                                 </div>
-                                                                <div className="text-left overflow-hidden">
-                                                                    <p className="text-sm font-bold text-slate-800 truncate">
-                                                                        {field.label || <span className="text-slate-300 italic">Untitled Field</span>}
+                                                                <p className={`text-sm font-bold truncate ${field.label ? 'text-slate-800' : 'text-slate-300 italic'}`}>
+                                                                    {field.label || 'Untitled Field'}
+                                                                </p>
+                                                                {field.unit && (
+                                                                    <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider mt-0.5">
+                                                                        {field.unit}
                                                                     </p>
-                                                                    <div className="flex items-center gap-2 mt-0.5">
-                                                                        <span className="text-[10px] text-slate-400 uppercase font-medium">{field.unit}</span>
-                                                                        {field.required && (
-                                                                            <span className="w-1 h-1 bg-amber-400 rounded-full"></span>
-                                                                        )}
-                                                                        {field.required && (
-                                                                            <span className="text-[10px] text-amber-600 font-bold uppercase tracking-tighter">Required</span>
-                                                                        )}
-                                                                    </div>
-                                                                </div>
+                                                                )}
                                                             </div>
-                                                            <svg className={`w-5 h-5 text-slate-300 transition-transform ${isExpanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                                                            </svg>
+
+                                                            <div className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${isExpanded ? 'bg-orange-50 text-[#6b4423] rotate-180' : 'bg-slate-50 text-slate-400'}`}>
+                                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                                                </svg>
+                                                            </div>
                                                         </button>
                                                     </div>
 
                                                     {/* Inline Editor (Expanded) */}
                                                     {isExpanded && (
-                                                        <div className="px-5 pb-5 pt-1 space-y-4 animate-slide-down bg-slate-50/50">
-                                                            <div className="grid grid-cols-2 gap-3">
-                                                                <div className="col-span-2 space-y-1">
-                                                                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-1">Field Label</label>
+                                                        <div className="px-4 pb-4 pt-2 space-y-4 animate-slide-down bg-white border-t border-slate-100">
+                                                            <div className="grid grid-cols-2 gap-4">
+                                                                <div className="col-span-2 space-y-1.5">
+                                                                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-1">Label</label>
                                                                     <input
                                                                         type="text"
                                                                         value={field.label}
                                                                         onChange={(e) => handleFieldChange(index, 'label', e.target.value)}
-                                                                        className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-[#6b4423] outline-none"
-                                                                        placeholder="e.g. Chest, Sleeve"
+                                                                        className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:bg-white focus:ring-2 focus:ring-[#6b4423]/20 focus:border-[#6b4423] transition-all outline-none"
+                                                                        placeholder="e.g. Chest"
                                                                     />
                                                                 </div>
-                                                                <div className="space-y-1">
+                                                                <div className="space-y-1.5">
                                                                     <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-1">Unit</label>
                                                                     <select
                                                                         value={field.unit}
                                                                         onChange={(e) => handleFieldChange(index, 'unit', e.target.value)}
-                                                                        className="w-full px-3 py-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-[#6b4423] outline-none"
+                                                                        className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:bg-white focus:ring-2 focus:ring-[#6b4423]/20 focus:border-[#6b4423] transition-all outline-none appearance-none"
                                                                     >
                                                                         <option value="inches">Inches</option>
                                                                         <option value="cm">CM</option>
                                                                         <option value="any">Any</option>
                                                                     </select>
                                                                 </div>
-                                                                <div className="flex items-center justify-between px-2">
-                                                                    <span className="text-xs font-bold text-slate-600">Required</span>
-                                                                    <input
-                                                                        type="checkbox"
-                                                                        checked={field.required}
-                                                                        onChange={(e) => handleFieldChange(index, 'required', e.target.checked)}
-                                                                        className="w-5 h-5 accent-[#6b4423] rounded-lg cursor-pointer"
-                                                                    />
+                                                                <div className="flex items-center justify-between px-1 pt-6">
+                                                                    <label className="flex items-center gap-3 cursor-pointer group">
+                                                                        <input
+                                                                            type="checkbox"
+                                                                            checked={field.required}
+                                                                            onChange={(e) => handleFieldChange(index, 'required', e.target.checked)}
+                                                                            className="w-5 h-5 accent-[#6b4423] rounded-md cursor-pointer"
+                                                                        />
+                                                                        <span className="text-sm font-semibold text-slate-600 group-hover:text-slate-900">Required Field</span>
+                                                                    </label>
                                                                 </div>
                                                             </div>
 
                                                             {/* Mobile Reorder Buttons */}
-                                                            <div className="grid grid-cols-2 gap-3 lg:hidden">
+                                                            <div className="flex items-center gap-2 lg:hidden pt-2">
                                                                 <button
                                                                     onClick={() => {
                                                                         if (index === 0) return;
@@ -700,9 +780,9 @@ const MeasurementPresets = () => {
                                                                         setSelectedPreset(prev => ({ ...prev, expandedIndex: index - 1 }));
                                                                     }}
                                                                     disabled={index === 0}
-                                                                    className="py-2 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-600 disabled:opacity-50"
+                                                                    className="flex-1 py-2 bg-slate-50 border border-slate-200 rounded-lg text-[10px] font-bold text-slate-500 uppercase tracking-wider disabled:opacity-30 disabled:cursor-not-allowed active:bg-slate-100"
                                                                 >
-                                                                    Move Up ↑
+                                                                    Move Up
                                                                 </button>
                                                                 <button
                                                                     onClick={() => {
@@ -713,17 +793,17 @@ const MeasurementPresets = () => {
                                                                         setSelectedPreset(prev => ({ ...prev, expandedIndex: index + 1 }));
                                                                     }}
                                                                     disabled={index === formData.fields.length - 1}
-                                                                    className="py-2 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-600 disabled:opacity-50"
+                                                                    className="flex-1 py-2 bg-slate-50 border border-slate-200 rounded-lg text-[10px] font-bold text-slate-500 uppercase tracking-wider disabled:opacity-30 disabled:cursor-not-allowed active:bg-slate-100"
                                                                 >
-                                                                    Move Down ↓
+                                                                    Move Down
                                                                 </button>
                                                             </div>
 
                                                             <button
                                                                 onClick={() => handleRemoveField(index)}
-                                                                className="w-full py-3 text-red-600 text-xs font-bold uppercase tracking-widest border border-red-100 rounded-xl active:bg-red-50 transition-colors"
+                                                                className="w-full flex items-center justify-center gap-2 py-2.5 text-red-600 bg-red-50 hover:bg-red-100 border border-red-100 rounded-lg transition-colors mt-2"
                                                             >
-                                                                Remove Field
+                                                                <span className="text-xs font-bold uppercase tracking-widest">Remove Field</span>
                                                             </button>
                                                         </div>
                                                     )}
@@ -753,120 +833,203 @@ const MeasurementPresets = () => {
                                 )}
                             </div>
 
-                            {/* Floating Add Button */}
+                            {/* Floating Add Button for Measurements */}
                             <button
                                 onClick={() => {
                                     handleAddField();
                                     setSelectedPreset(prev => ({ ...prev, expandedIndex: formData.fields.length }));
                                 }}
-                                className="fixed bottom-6 right-6 w-14 h-14 bg-[#6b4423] text-white rounded-full shadow-2xl flex items-center justify-center z-20 active:scale-90 transition-transform"
+                                className="fixed bottom-6 right-6 px-6 py-4 bg-[#6b4423] hover:bg-[#5a391d] text-white rounded-full shadow-2xl flex items-center gap-3 z-20 active:scale-95 transition-all group"
                             >
-                                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <svg className="w-6 h-6 group-hover:rotate-90 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
                                 </svg>
+                                <span className="font-bold text-sm tracking-wide">Add Field</span>
                             </button>
                         </div>
 
-                        {/* DESKTOP: Traditional Modal (Unchanged) */}
-                        <div className="hidden lg:flex fixed inset-0 bg-black/50 items-center justify-center p-4 z-50">
-                            <div className="bg-white rounded-2xl p-6 max-w-3xl w-full max-h-[90vh] overflow-y-auto">
-                                <h2 className="text-2xl font-bold text-slate-800 mb-6">
-                                    {editingPreset ? 'Edit Preset' : 'Create New Preset'}
-                                </h2>
-
-                                <div className="space-y-4 mb-6">
+                        {/* DESKTOP: Traditional Modal */}
+                        <div className="hidden lg:flex fixed inset-0 bg-black/60 backdrop-blur-sm items-center justify-center p-4 z-50">
+                            <div className="bg-[#f8f9fa] rounded-2xl max-w-2xl w-full max-h-[85vh] flex flex-col shadow-2xl overflow-hidden border border-white/20">
+                                {/* Header */}
+                                <div className="px-8 py-6 bg-white border-b border-gray-100 flex items-center justify-between">
                                     <div>
-                                        <label className="block text-sm font-medium text-slate-700 mb-2">
-                                            Preset Name *
-                                        </label>
-                                        <input
-                                            type="text"
-                                            value={formData.name}
-                                            onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                                            className="w-full px-4 py-2.5 bg-slate-50 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#6b4423]"
-                                            placeholder="e.g., Shirt, Pant, Custom Kurta"
-                                        />
+                                        <h2 className="text-2xl font-bold text-slate-800 tracking-tight">
+                                            {editingPreset ? 'Edit Preset' : 'New Preset'}
+                                        </h2>
+                                        <p className="text-sm text-slate-500 mt-1">Configure your measurement template</p>
+                                    </div>
+                                    <button
+                                        onClick={() => {
+                                            setShowCreateModal(false);
+                                            if (editingPreset) {
+                                                setTravelDirection('left');
+                                                setShowDetailView(true);
+                                            }
+                                        }}
+                                        className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-full transition-all"
+                                    >
+                                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                                    </button>
+                                </div>
+
+                                {/* Content */}
+                                <div className="flex-1 overflow-y-auto px-8 py-6 space-y-8">
+                                    {/* Basic Info */}
+                                    <div className="bg-white p-6 rounded-2xl border border-slate-200/60 shadow-sm space-y-6">
+                                        <div className="grid grid-cols-2 gap-6">
+                                            <div className="col-span-2 space-y-2">
+                                                <label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest pl-1">Preset Name <span className="text-red-500">*</span></label>
+                                                <input
+                                                    type="text"
+                                                    value={formData.name}
+                                                    onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                                                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#6b4423]/20 focus:border-[#6b4423] transition-all font-medium text-slate-800 placeholder:text-slate-400"
+                                                    placeholder="e.g. Shirt, Suit, Kurta"
+                                                />
+                                            </div>
+
+                                            <div className="col-span-2 space-y-2">
+                                                <label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest pl-1">Description</label>
+                                                <textarea
+                                                    value={formData.description}
+                                                    onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                                                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#6b4423]/20 focus:border-[#6b4423] transition-all font-medium text-slate-800 placeholder:text-slate-400 resize-none"
+                                                    rows="2"
+                                                    placeholder="Optional details about this preset..."
+                                                />
+                                            </div>
+
+                                            <div className="space-y-2">
+                                                <label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest pl-1">Base Price (₹)</label>
+                                                <div className="relative">
+                                                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                                                        <span className="text-slate-400 font-bold">₹</span>
+                                                    </div>
+                                                    <input
+                                                        type="number"
+                                                        value={formData.basePrice}
+                                                        onChange={(e) => setFormData(prev => ({ ...prev, basePrice: e.target.value }))}
+                                                        className="w-full pl-8 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#6b4423]/20 focus:border-[#6b4423] transition-all font-medium text-slate-800 placeholder:text-slate-400"
+                                                        placeholder="0.00"
+                                                    />
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
 
-                                    <div>
-                                        <label className="block text-sm font-medium text-slate-700 mb-2">
-                                            Description
-                                        </label>
-                                        <textarea
-                                            value={formData.description}
-                                            onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                                            className="w-full px-4 py-2.5 bg-slate-50 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#6b4423]"
-                                            rows="2"
-                                            placeholder="Optional description"
-                                        />
+                                    {/* Measurements */}
+                                    <div className="space-y-4">
+                                        <div className="flex items-end justify-between px-1">
+                                            <div>
+                                                <h3 className="text-base font-bold text-slate-800">Fields</h3>
+                                                <p className="text-xs text-slate-400 font-medium mt-0.5">Define the measurements needed</p>
+                                            </div>
+                                            <button
+                                                onClick={handleAddField}
+                                                className="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold uppercase tracking-wider rounded-lg transition-all shadow-lg shadow-slate-900/10 active:scale-95"
+                                            >
+                                                + Add Field
+                                            </button>
+                                        </div>
+
+                                        <div className="space-y-3">
+                                            {formData.fields.map((field, index) => (
+                                                <div
+                                                    key={index}
+                                                    className="group flex gap-3 items-start bg-white p-2 pr-3 rounded-xl border border-slate-200 shadow-sm hover:border-slate-300 transition-colors"
+                                                    draggable={true}
+                                                    onDragStart={(e) => handleDragStart(e, index)}
+                                                    onDragEnter={(e) => handleDragEnter(e, index)}
+                                                    onDragEnd={handleDragEnd}
+                                                    onDragOver={(e) => e.preventDefault()}
+                                                >
+                                                    {/* Desktop Drag Handle */}
+                                                    <div className="mt-3 cursor-grab text-slate-300 hover:text-slate-500 px-2">
+                                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" /></svg>
+                                                    </div>
+
+                                                    <div className="flex-1 grid grid-cols-12 gap-3">
+                                                        <div className="col-span-5">
+                                                            <input
+                                                                type="text"
+                                                                value={field.label}
+                                                                onChange={(e) => handleFieldChange(index, 'label', e.target.value)}
+                                                                className="w-full px-3 py-2.5 bg-slate-50 border border-transparent focus:bg-white focus:border-slate-200 rounded-lg text-sm font-medium transition-all outline-none focus:ring-2 focus:ring-[#6b4423]/10"
+                                                                placeholder="Label (e.g. Chest)"
+                                                            />
+                                                        </div>
+                                                        <div className="col-span-4">
+                                                            <select
+                                                                value={field.unit}
+                                                                onChange={(e) => handleFieldChange(index, 'unit', e.target.value)}
+                                                                className="w-full px-3 py-2.5 bg-slate-50 border border-transparent focus:bg-white focus:border-slate-200 rounded-lg text-sm font-medium transition-all outline-none focus:ring-2 focus:ring-[#6b4423]/10 appearance-none"
+                                                            >
+                                                                <option value="inches">Inches</option>
+                                                                <option value="cm">cm</option>
+                                                                <option value="any">Any Unit</option>
+                                                            </select>
+                                                        </div>
+                                                        <div className="col-span-3 flex items-center">
+                                                            <label className="flex items-center gap-2 px-3 py-2 cursor-pointer select-none">
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={field.required}
+                                                                    onChange={(e) => handleFieldChange(index, 'required', e.target.checked)}
+                                                                    className="w-4 h-4 accent-[#6b4423] rounded cursor-pointer"
+                                                                />
+                                                                <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">Req</span>
+                                                            </label>
+                                                        </div>
+                                                    </div>
+
+                                                    <button
+                                                        onClick={() => handleRemoveField(index)}
+                                                        className="mt-1.5 p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                                                        title="Remove field"
+                                                    >
+                                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                                    </button>
+                                                </div>
+                                            ))}
+                                        </div>
                                     </div>
                                 </div>
 
-                                <div className="mb-4">
-                                    <div className="flex items-center justify-between mb-3">
-                                        <h3 className="text-lg font-bold text-slate-800">Measurement Fields</h3>
+                                {/* Footer */}
+                                <div className="px-8 py-5 bg-white border-t border-gray-100 flex justify-between items-center">
+                                    {editingPreset && (
                                         <button
-                                            onClick={handleAddField}
-                                            className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition-colors"
+                                            onClick={() => {
+                                                setShowCreateModal(false);
+                                                setShowDeleteConfirm(true);
+                                                setSelectedPreset(editingPreset);
+                                            }}
+                                            className="text-red-500 font-bold text-sm hover:underline"
                                         >
-                                            + Add Field
+                                            Delete Preset
+                                        </button>
+                                    )}
+                                    <div className="flex gap-3 ml-auto">
+                                        <button
+                                            onClick={() => {
+                                                setShowCreateModal(false);
+                                                if (editingPreset) {
+                                                    setTravelDirection('left');
+                                                    setShowDetailView(true);
+                                                }
+                                            }}
+                                            className="px-6 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold text-sm rounded-xl transition-colors"
+                                        >
+                                            Cancel
+                                        </button>
+                                        <button
+                                            onClick={handleSavePreset}
+                                            className="px-8 py-2.5 bg-[#6b4423] hover:bg-[#5a391d] text-white font-bold text-sm rounded-xl shadow-lg shadow-orange-900/10 active:scale-95 transition-all"
+                                        >
+                                            Save Changes
                                         </button>
                                     </div>
-
-                                    <div className="space-y-3">
-                                        {formData.fields.map((field, index) => (
-                                            <div key={index} className="flex gap-2 items-start bg-slate-50 p-3 rounded-lg">
-                                                <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-2">
-                                                    <input
-                                                        type="text"
-                                                        value={field.label}
-                                                        onChange={(e) => handleFieldChange(index, 'label', e.target.value)}
-                                                        className="px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6b4423]"
-                                                        placeholder="Measurement name (e.g., Chest)"
-                                                    />
-                                                    <select
-                                                        value={field.unit}
-                                                        onChange={(e) => handleFieldChange(index, 'unit', e.target.value)}
-                                                        className="px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6b4423]"
-                                                    >
-                                                        <option value="inches">Inches</option>
-                                                        <option value="cm">Centimeters</option>
-                                                        <option value="any">Any Unit</option>
-                                                    </select>
-                                                    <label className="flex items-center gap-2 px-3 py-2">
-                                                        <input
-                                                            type="checkbox"
-                                                            checked={field.required}
-                                                            onChange={(e) => handleFieldChange(index, 'required', e.target.checked)}
-                                                            className="w-4 h-4"
-                                                        />
-                                                        <span className="text-sm">Required</span>
-                                                    </label>
-                                                </div>
-                                                <button
-                                                    onClick={() => handleRemoveField(index)}
-                                                    className="px-3 py-2 bg-red-500 hover:bg-red-600 text-white text-sm rounded-lg transition-colors"
-                                                >
-                                                    ✕
-                                                </button>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-
-                                <div className="flex gap-3 justify-end">
-                                    <button
-                                        onClick={() => setShowCreateModal(false)}
-                                        className="px-6 py-3 bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold rounded-lg transition-colors"
-                                    >
-                                        Cancel
-                                    </button>
-                                    <button
-                                        onClick={handleSavePreset}
-                                        className="px-6 py-3 bg-[#6b4423] hover:bg-[#573619] text-white font-semibold rounded-lg transition-colors"
-                                    >
-                                        {editingPreset ? 'Update Preset' : 'Create Preset'}
-                                    </button>
                                 </div>
                             </div>
                         </div>
@@ -876,5 +1039,6 @@ const MeasurementPresets = () => {
         </div>
     );
 };
+
 
 export default MeasurementPresets;

@@ -45,7 +45,7 @@ router.get('/detail/:presetId', async (req, res) => {
 // @access  Private
 router.post('/', async (req, res) => {
     try {
-        const { tailorId, name, description, fields } = req.body;
+        const { tailorId, name, description, basePrice, fields } = req.body;
 
         // Validation
         if (!tailorId || !name || !fields || fields.length === 0) {
@@ -62,6 +62,7 @@ router.post('/', async (req, res) => {
             tailorId,
             name,
             description: description || '',
+            basePrice: basePrice || 0,
             fields,
             isDefault: false
         });
@@ -79,7 +80,7 @@ router.post('/', async (req, res) => {
 router.put('/:presetId', async (req, res) => {
     try {
         const { presetId } = req.params;
-        const { name, description, fields } = req.body;
+        const { name, description, basePrice, fields } = req.body;
 
         const preset = await MeasurementPreset.findById(presetId);
 
@@ -101,6 +102,7 @@ router.put('/:presetId', async (req, res) => {
 
         if (name) preset.name = name;
         if (description !== undefined) preset.description = description;
+        if (basePrice !== undefined) preset.basePrice = basePrice;
         if (fields && fields.length > 0) preset.fields = fields;
 
         await preset.save();

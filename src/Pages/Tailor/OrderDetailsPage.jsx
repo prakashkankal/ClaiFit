@@ -19,6 +19,11 @@ const OrderDetailsPage = () => {
     const [finalPaymentAmount, setFinalPaymentAmount] = useState(0);
     const [showDeliveryModal, setShowDeliveryModal] = useState(false);
     const [deliveryData, setDeliveryData] = useState(null);
+    const [editingMeasurements, setEditingMeasurements] = useState(false);
+    const [tempOrderItems, setTempOrderItems] = useState([]);
+    const [tempLegacyMeasurements, setTempLegacyMeasurements] = useState({});
+    const [expandedItemIndex, setExpandedItemIndex] = useState(null);
+    const [editingItemIndex, setEditingItemIndex] = useState(null);
 
     const handleShareInvoice = async () => {
         if (!deliveryData || !order) return;
@@ -163,6 +168,75 @@ const OrderDetailsPage = () => {
         }
     };
 
+    const handleStartEditingMeasurements = (index = null) => {
+        if (order.orderItems && order.orderItems.length > 0) {
+            setTempOrderItems(JSON.parse(JSON.stringify(order.orderItems)));
+            if (index !== null) {
+                setEditingItemIndex(index);
+                setExpandedItemIndex(index);
+            }
+        } else if (order.measurements) {
+            setTempLegacyMeasurements({ ...order.measurements });
+            setEditingMeasurements(true);
+        }
+        setActiveSection('measurements');
+    };
+
+    const handleSaveMeasurements = async (index = null) => {
+        try {
+            const payload = {};
+            if (order.orderItems && order.orderItems.length > 0) {
+                payload.orderItems = tempOrderItems;
+            } else {
+                payload.measurements = tempLegacyMeasurements;
+            }
+
+            const { data } = await axios.put(`${API_URL}/api/orders/${order._id}/measurements`, payload);
+
+            if (data.order) {
+                setOrder(prev => ({
+                    ...prev,
+                    orderItems: data.order.orderItems,
+                    measurements: data.order.measurements
+                }));
+            }
+            if (index !== null) {
+                setEditingItemIndex(null);
+            } else {
+                setEditingMeasurements(false);
+            }
+        } catch (err) {
+            console.error('Error updating measurements:', err);
+            alert('Failed to update measurements');
+        }
+    };
+
+    const handleCancelEditingMeasurements = () => {
+        setEditingMeasurements(false);
+        setEditingItemIndex(null);
+        setTempOrderItems([]);
+        setTempLegacyMeasurements({});
+    };
+
+    const handleLegacyMeasurementChange = (key, value) => {
+        setTempLegacyMeasurements(prev => ({
+            ...prev,
+            [key]: value
+        }));
+    };
+
+    const handleOrderItemMeasurementChange = (itemIndex, type, key, value) => {
+        setTempOrderItems(prev => {
+            const newItems = [...prev];
+            if (!newItems[itemIndex][type]) newItems[itemIndex][type] = {};
+            newItems[itemIndex][type] = {
+                ...newItems[itemIndex][type],
+                [key]: value
+            };
+            return newItems;
+        });
+    };
+
     const handleLogout = () => {
         localStorage.removeItem('userInfo');
         navigate('/login');
@@ -192,7 +266,8 @@ const OrderDetailsPage = () => {
             'Delivered': 'bg-slate-100 text-slate-700 border border-slate-300',
             'Pending': 'bg-amber-100 text-amber-700 border border-amber-300',
             'In Progress': 'bg-blue-100 text-blue-700 border border-blue-300',
-            'Completed': 'bg-emerald-100 text-emerald-700 border border-emerald-300'
+            'Completed': 'bg-emerald-100 text-emerald-700 border border-emerald-300',
+            'Draft': 'bg-purple-100 text-purple-700 border border-purple-300'
         };
         return badges[status] || 'bg-slate-100 text-slate-700 border border-slate-300';
     };
@@ -512,101 +587,203 @@ const OrderDetailsPage = () => {
                     </div>
 
                     {/* SECTION 3: MEASUREMENTS */}
-                    <div className="bg-amber-50/80 backdrop-blur-xl border-2 border-dashed border-amber-300 rounded-3xl shadow-lg p-4 mb-3 md:p-6 md:mb-6">
-                        <div className="flex items-center justify-between mb-3 md:mb-4">
+                    <div className={`bg-amber-50/80 backdrop-blur-xl border-2 border-dashed ${editingMeasurements ? 'border-amber-500 ring-2 ring-amber-200' : 'border-amber-300'} rounded-3xl shadow-lg mb-3 md:mb-6 overflow-hidden transition-all duration-300 md:p-6`}>
+                        {/* Header */}
+                        <div className="p-4 md:p-0 flex items-center justify-between">
                             <h2 className="text-lg md:text-xl font-bold text-slate-800 flex items-center gap-2">
                                 <svg className="w-5 h-5 md:w-6 md:h-6 text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                     <path d="M2 12h20" /><path d="M6 12v-2" /><path d="M10 12v-4" /><path d="M14 12v-2" /><path d="M18 12v-4" />
                                 </svg>
                                 Measurements
                             </h2>
-                            <button
-                                className="px-3 py-1.5 md:px-4 md:py-2 bg-amber-600 hover:bg-amber-700 text-white text-xs md:text-sm font-medium rounded-lg transition-colors"
-                                onClick={() => alert('Edit measurements feature coming soon!')}
-                            >
-                                <svg className="w-4 h-4 md:w-5 md:h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                                </svg>
-                            </button>
+                            <div className="flex items-center gap-2">
+                                {/* Only show global edit button for Legacy measurements */}
+                                {(!order.orderItems || order.orderItems.length === 0) && (
+                                    editingMeasurements ? (
+                                        <>
+                                            <button
+                                                onClick={() => handleSaveMeasurements()}
+                                                className="z-10 px-3 py-1.5 md:px-4 md:py-2 bg-green-600 hover:bg-green-700 text-white text-xs md:text-sm font-medium rounded-lg transition-colors relative"
+                                            >
+                                                Save
+                                            </button>
+                                            <button
+                                                onClick={handleCancelEditingMeasurements}
+                                                className="z-10 px-3 py-1.5 md:px-4 md:py-2 bg-slate-400 hover:bg-slate-500 text-white text-xs md:text-sm font-medium rounded-lg transition-colors relative"
+                                            >
+                                                Cancel
+                                            </button>
+                                        </>
+                                    ) : (
+                                        <button
+                                            className="z-10 px-3 py-1.5 md:px-4 md:py-2 bg-amber-600 hover:bg-amber-700 text-white text-xs md:text-sm font-medium rounded-lg transition-colors relative"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleStartEditingMeasurements();
+                                            }}
+                                        >
+                                            <svg className="w-4 h-4 md:w-5 md:h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                            </svg>
+                                        </button>
+                                    )
+                                )}
+                            </div>
                         </div>
 
-                        {/* Checking for new Order Items structure first */}
-                        {order.orderItems && order.orderItems.length > 0 ? (
-                            <div className="space-y-6">
-                                {order.orderItems.map((item, index) => {
-                                    const hasMeasurements = item.measurements && Object.keys(item.measurements).length > 0;
-                                    const hasExtraMeasurements = item.extraMeasurements && Object.keys(item.extraMeasurements).length > 0;
-
-                                    if (!hasMeasurements && !hasExtraMeasurements) return null;
-
-                                    return (
-                                        <div key={index} className="bg-white/50 rounded-xl p-3 md:p-4 border border-amber-100">
-                                            <div className="flex items-center gap-2 mb-3 border-b border-amber-200/50 pb-2">
-                                                <span className="bg-amber-100 text-amber-800 text-xs font-bold px-2 py-0.5 rounded-full">Item {index + 1}</span>
-                                                <h3 className="font-bold text-slate-800 text-sm md:text-base">{item.garmentType}</h3>
+                        {/* Content */}
+                        <div className="px-4 pb-4 md:p-0 border-t border-amber-200/50 pt-4 md:border-none md:pt-0 block">
+                            {/* NEW: Multi-item Order Structure */}
+                            {order.orderItems && order.orderItems.length > 0 ? (
+                                <div className="space-y-3">
+                                    {(editingItemIndex !== null ? tempOrderItems : order.orderItems).map((item, index) => (
+                                        <div key={index} className="bg-white/50 rounded-xl border border-amber-100 overflow-hidden">
+                                            {/* Item Header - Accordion Toggle */}
+                                            <div
+                                                className="p-3 md:p-4 flex items-center justify-between cursor-pointer hover:bg-amber-50/50 transition-colors"
+                                                onClick={() => setExpandedItemIndex(expandedItemIndex === index ? null : index)}
+                                            >
+                                                <div className="flex items-center gap-3">
+                                                    <span className="bg-amber-100 text-amber-800 text-xs font-bold px-2 py-0.5 rounded-full">Item {index + 1}</span>
+                                                    <h3 className="font-bold text-slate-800 text-sm md:text-base">{item.garmentType}</h3>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    {expandedItemIndex === index && editingItemIndex !== index && (
+                                                        <button
+                                                            className="p-1.5 bg-amber-100 text-amber-700 rounded-lg hover:bg-amber-200 transition-colors"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                handleStartEditingMeasurements(index);
+                                                            }}
+                                                        >
+                                                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                                            </svg>
+                                                        </button>
+                                                    )}
+                                                    <svg
+                                                        className={`w-5 h-5 text-slate-400 transition-transform duration-300 ${expandedItemIndex === index ? 'rotate-180' : ''}`}
+                                                        fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                                                    >
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                                    </svg>
+                                                </div>
                                             </div>
 
-                                            {/* Standard Measurements */}
-                                            {hasMeasurements && (
-                                                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4 mb-3">
-                                                    {Object.entries(item.measurements).map(([key, value]) => (
-                                                        <div key={key} className="bg-white rounded-lg p-3 md:p-4 border border-amber-200 shadow-sm">
-                                                            <p className="text-[10px] md:text-xs text-amber-700 uppercase tracking-wide mb-0.5 md:mb-1 font-medium truncate">
-                                                                {key.replace(/([A-Z])/g, ' $1').trim()}
-                                                            </p>
-                                                            <p className="text-lg md:text-xl font-bold text-slate-800">{value}</p>
+                                            {/* Expanded Content */}
+                                            {expandedItemIndex === index && (
+                                                <div className="p-3 md:p-4 border-t border-amber-100 bg-white/30">
+
+                                                    {/* Header for Edit Mode inside Item */}
+                                                    {editingItemIndex === index && (
+                                                        <div className="flex justify-end gap-2 mb-3">
+                                                            <button
+                                                                onClick={(e) => { e.stopPropagation(); handleSaveMeasurements(index); }}
+                                                                className="px-3 py-1 bg-green-600 hover:bg-green-700 text-white text-xs font-medium rounded-lg transition-colors"
+                                                            >
+                                                                Save
+                                                            </button>
+                                                            <button
+                                                                onClick={(e) => { e.stopPropagation(); handleCancelEditingMeasurements(); }}
+                                                                className="px-3 py-1 bg-slate-400 hover:bg-slate-500 text-white text-xs font-medium rounded-lg transition-colors"
+                                                            >
+                                                                Cancel
+                                                            </button>
                                                         </div>
-                                                    ))}
-                                                </div>
-                                            )}
+                                                    )}
 
-                                            {/* Extra Measurements */}
-                                            {hasExtraMeasurements && (
-                                                <div className="mt-3">
-                                                    <p className="text-xs font-semibold text-slate-500 mb-2">Extra Measurements</p>
-                                                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                                                        {Object.entries(item.extraMeasurements).map(([key, value]) => (
-                                                            <div key={key} className="bg-slate-50 rounded-lg p-2 border border-slate-200">
-                                                                <p className="text-[10px] text-slate-500 uppercase font-medium">{key}</p>
-                                                                <p className="text-sm font-bold text-slate-800">{value}</p>
+                                                    {/* Standard Measurements */}
+                                                    {item.measurements && Object.keys(item.measurements).length > 0 && (
+                                                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4 mb-3">
+                                                            {Object.entries(item.measurements).map(([key, value]) => (
+                                                                <div key={key} className={`bg-white rounded-lg p-2 border ${editingItemIndex === index ? 'border-amber-300 ring-2 ring-amber-100' : 'border-amber-200'} shadow-sm`}>
+                                                                    <p className="text-[10px] md:text-xs text-amber-700 uppercase tracking-wide mb-1 font-medium truncate">
+                                                                        {key.replace(/([A-Z])/g, ' $1').trim()}
+                                                                    </p>
+                                                                    {editingItemIndex === index ? (
+                                                                        <input
+                                                                            type="text"
+                                                                            value={value}
+                                                                            onClick={(e) => e.stopPropagation()}
+                                                                            onChange={(e) => handleOrderItemMeasurementChange(index, 'measurements', key, e.target.value)}
+                                                                            className="w-full text-base font-bold text-slate-800 bg-transparent border-b border-amber-200 focus:border-amber-500 focus:outline-none"
+                                                                        />
+                                                                    ) : (
+                                                                        <p className="text-lg md:text-xl font-bold text-slate-800">{value}</p>
+                                                                    )}
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    )}
+
+                                                    {/* Extra Measurements */}
+                                                    {item.extraMeasurements && Object.keys(item.extraMeasurements).length > 0 && (
+                                                        <div className="mt-3">
+                                                            <p className="text-xs font-semibold text-slate-500 mb-2">Extra Measurements</p>
+                                                            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                                                                {Object.entries(item.extraMeasurements).map(([key, value]) => (
+                                                                    <div key={key} className={`bg-slate-50 rounded-lg p-2 border ${editingItemIndex === index ? 'border-amber-300' : 'border-slate-200'}`}>
+                                                                        <p className="text-[10px] text-slate-500 uppercase font-medium">{key}</p>
+                                                                        {editingItemIndex === index ? (
+                                                                            <input
+                                                                                type="text"
+                                                                                value={value}
+                                                                                onClick={(e) => e.stopPropagation()}
+                                                                                onChange={(e) => handleOrderItemMeasurementChange(index, 'extraMeasurements', key, e.target.value)}
+                                                                                className="w-full text-sm font-bold text-slate-800 bg-transparent border-b border-slate-300 focus:border-blue-500 focus:outline-none"
+                                                                            />
+                                                                        ) : (
+                                                                            <p className="text-sm font-bold text-slate-800">{value}</p>
+                                                                        )}
+                                                                    </div>
+                                                                ))}
                                                             </div>
-                                                        ))}
-                                                    </div>
-                                                </div>
-                                            )}
+                                                        </div>
+                                                    )}
 
-                                            {item.notes && (
-                                                <div className="mt-3 text-xs md:text-sm text-slate-600 bg-amber-50 p-2 rounded border border-amber-100 italic">
-                                                    Note: {item.notes}
+                                                    {item.notes && (
+                                                        <div className="mt-3 text-xs md:text-sm text-slate-600 bg-amber-50 p-2 rounded border border-amber-100 italic">
+                                                            Note: {item.notes}
+                                                        </div>
+                                                    )}
                                                 </div>
                                             )}
                                         </div>
-                                    );
-                                })}
-                            </div>
-                        ) : order.measurements && Object.keys(order.measurements).length > 0 ? (
-                            // Legacy Measurements Support
-                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
-                                {Object.entries(order.measurements).map(([key, value]) => (
-                                    <div key={key} className="bg-white rounded-lg p-3 md:p-4 border border-amber-200 shadow-sm">
-                                        <p className="text-[10px] md:text-xs text-amber-700 uppercase tracking-wide mb-0.5 md:mb-1 font-medium truncate">
-                                            {key.replace(/([A-Z])/g, ' $1').trim()}
-                                        </p>
-                                        <p className="text-lg md:text-xl font-bold text-slate-800">{value}</p>
-                                    </div>
-                                ))}
-                            </div>
-                        ) : (
-                            <div className="text-center py-8 md:py-12 text-slate-500">
-                                <div className="mb-2 md:mb-3 flex justify-center text-slate-300">
-                                    <svg className="w-12 h-12 md:w-16 md:h-16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                                        <path d="M2 12h20" /><path d="M6 12v-2" /><path d="M10 12v-4" /><path d="M14 12v-2" /><path d="M18 12v-4" />
-                                    </svg>
+                                    ))}
                                 </div>
-                                <p className="text-base md:text-lg font-medium">No measurements</p>
-                                <p className="text-xs md:text-sm mt-1">Measurements were not captured for this order</p>
-                            </div>
-                        )}
+                            ) : order.measurements && Object.keys(order.measurements).length > 0 ? (
+                                // Legacy Measurements Support (Keep using global editingMeasurements for simplicity for now as fallback)
+                                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
+                                    {Object.entries(editingMeasurements ? tempLegacyMeasurements : order.measurements).map(([key, value]) => (
+                                        <div key={key} className={`bg-white rounded-lg p-2 border ${editingMeasurements ? 'border-amber-300 ring-2 ring-amber-100' : 'border-amber-200'} shadow-sm`}>
+                                            <p className="text-[10px] md:text-xs text-amber-700 uppercase tracking-wide mb-1 font-medium truncate">
+                                                {key.replace(/([A-Z])/g, ' $1').trim()}
+                                            </p>
+                                            {editingMeasurements ? (
+                                                <input
+                                                    type="text"
+                                                    value={value}
+                                                    onChange={(e) => handleLegacyMeasurementChange(key, e.target.value)}
+                                                    className="w-full text-base font-bold text-slate-800 bg-transparent border-b border-amber-200 focus:border-amber-500 focus:outline-none"
+                                                />
+                                            ) : (
+                                                <p className="text-lg md:text-xl font-bold text-slate-800">{value}</p>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="text-center py-8 md:py-12 text-slate-500">
+                                    <div className="mb-2 md:mb-3 flex justify-center text-slate-300">
+                                        <svg className="w-12 h-12 md:w-16 md:h-16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                                            <path d="M2 12h20" /><path d="M6 12v-2" /><path d="M10 12v-4" /><path d="M14 12v-2" /><path d="M18 12v-4" />
+                                        </svg>
+                                    </div>
+                                    <p className="text-base md:text-lg font-medium">No measurements</p>
+                                    <p className="text-xs md:text-sm mt-1">Measurements were not captured for this order</p>
+                                </div>
+                            )}
+                        </div>
                     </div>
 
                     {/* SECTION 4: ORDER NOTES */}
