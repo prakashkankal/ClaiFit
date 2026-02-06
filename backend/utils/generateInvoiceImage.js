@@ -46,9 +46,30 @@ export const generateInvoiceImage = async (order, tailor) => {
     ctx.fillText('GENERATED ON', width - padding, 40);
 
     // Draw "KStitch" logo text mock
-    ctx.font = 'bold 24px Arial';
-    ctx.fillStyle = '#4F46E5'; // Indigo/Purple for KStitch
-    ctx.fillText('C', width - padding - 85, 70);
+    // Draw "KStitch" logo branding professionally
+    const logoX = width - padding - 85;
+    const logoY = 65;
+
+    // Draw a stylish "K" icon (simulating SVG)
+    ctx.beginPath();
+    ctx.moveTo(logoX, logoY - 20);
+    ctx.lineTo(logoX, logoY + 10);
+    ctx.lineTo(logoX + 8, logoY + 10);
+    ctx.lineTo(logoX + 8, logoY + 2);
+    ctx.lineTo(logoX + 22, logoY + 10);
+    ctx.lineTo(logoX + 32, logoY + 10);
+    ctx.lineTo(logoX + 15, logoY);
+    ctx.lineTo(logoX + 32, logoY - 20);
+    ctx.lineTo(logoX + 22, logoY - 20);
+    ctx.lineTo(logoX + 8, logoY - 5);
+    ctx.lineTo(logoX + 8, logoY - 20);
+    ctx.closePath();
+    ctx.fillStyle = '#4F46E5'; // Indigo/Purple
+    ctx.fill();
+
+    // Draw "KStitch" text
+    ctx.textAlign = 'right';
+    ctx.font = 'bold 24px "Helvetica Neue", Helvetica, Arial, sans-serif';
     ctx.fillStyle = '#333333';
     ctx.fillText('KStitch', width - padding, 70);
 
@@ -163,13 +184,26 @@ export const generateInvoiceImage = async (order, tailor) => {
         ctx.fillText(value, width - padding - 20, y);
     };
 
-    drawRow('Sub Total', `₹ ${order.price.toFixed(2)}`, currentY + 60, true);
-    drawRow('Total Amount', `₹ ${order.price.toFixed(2)}`, currentY + 90, true, true);
+    let rowY = currentY + 60;
+
+    drawRow('Sub Total', `₹ ${order.price.toFixed(2)}`, rowY, true);
+    rowY += 30;
+
+    const discount = order.discount || 0;
+    if (discount > 0) {
+        drawRow('Discount', `- ₹ ${discount.toFixed(2)}`, rowY, false);
+        rowY += 20;
+    }
+
+    const totalAmount = order.price - discount;
+    drawRow('Total Amount', `₹ ${totalAmount.toFixed(2)}`, rowY, true, true);
+    rowY += 30;
 
     const received = order.advancePayment || 0;
-    const balance = order.price - received;
-    drawRow('Received Amount', `₹ ${received.toFixed(2)}`, currentY + 120, false);
-    drawRow('Transaction Balance', `₹ ${balance.toFixed(2)}`, currentY + 140, false);
+    const balance = Math.max(0, totalAmount - received);
+    drawRow('Received Amount', `₹ ${received.toFixed(2)}`, rowY, false);
+    rowY += 20;
+    drawRow('Transaction Balance', `₹ ${balance.toFixed(2)}`, rowY, false);
 
     // --- Footer ---
     currentY += 190;

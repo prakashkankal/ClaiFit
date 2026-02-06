@@ -7,6 +7,7 @@ import Review from '../models/Review.js';
 import Post from '../models/Post.js';
 import crypto from 'crypto';
 import sendEmail from '../utils/sendEmail.js';
+import { compressBase64 } from '../utils/imageCompressor.js';
 
 const router = express.Router();
 
@@ -192,10 +193,13 @@ router.put('/upload-image', async (req, res) => {
             return res.status(400).json({ message: 'Email and image are required' });
         }
 
+        // Compress image
+        const compressedImage = await compressBase64(shopImage, 600); // 600px width for profile is sufficient
+
         // Find tailor and update shop image
         const tailor = await Tailor.findOneAndUpdate(
             { email },
-            { shopImage },
+            { shopImage: compressedImage },
             { new: true }
         ).select('-password');
 
@@ -229,10 +233,13 @@ router.put('/upload-banner-image', async (req, res) => {
             return res.status(400).json({ message: 'Email and banner image are required' });
         }
 
+        // Compress banner image
+        const compressedBanner = await compressBase64(bannerImage, 1200); // 1200px width for banner
+
         // Find tailor and update banner image
         const tailor = await Tailor.findOneAndUpdate(
             { email },
-            { bannerImage },
+            { bannerImage: compressedBanner },
             { new: true }
         ).select('-password');
 

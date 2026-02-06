@@ -16,6 +16,7 @@ const OrderDetailsPage = () => {
     const [tailorData, setTailorData] = useState(null);
     const [activeSection, setActiveSection] = useState(null);
     const [paymentMode, setPaymentMode] = useState('Cash');
+    const [discount, setDiscount] = useState(0);
     const [finalPaymentAmount, setFinalPaymentAmount] = useState(0);
     const [showDeliveryModal, setShowDeliveryModal] = useState(false);
     const [deliveryData, setDeliveryData] = useState(null);
@@ -98,9 +99,19 @@ const OrderDetailsPage = () => {
 
     useEffect(() => {
         if (order) {
-            setFinalPaymentAmount(order.price - (order.advancePayment || 0));
+            const initialDiscount = order.discount || 0;
+            setDiscount(initialDiscount);
+            setFinalPaymentAmount(Math.max(0, order.price - (order.advancePayment || 0) - initialDiscount));
         }
     }, [order]);
+
+    // Recalculate final payment when discount changes
+    useEffect(() => {
+        if (order) {
+            const due = Math.max(0, order.price - (order.advancePayment || 0) - (parseFloat(discount) || 0));
+            setFinalPaymentAmount(due);
+        }
+    }, [discount, order]);
 
     const getPreviousStatus = (currentStatus) => {
         switch (currentStatus) {
@@ -122,6 +133,7 @@ const OrderDetailsPage = () => {
             if (newStatus === 'Delivered') {
                 payload.paymentMode = paymentMode;
                 payload.finalPaymentAmount = parseFloat(finalPaymentAmount);
+                payload.discount = parseFloat(discount) || 0;
             }
 
             const { data } = await axios.put(`${API_URL}/api/orders/${order._id}/status`, payload);
@@ -408,9 +420,15 @@ const OrderDetailsPage = () => {
                                 <p className="text-xs text-slate-500 uppercase tracking-wide mb-1">Advance Payment</p>
                                 <p className="text-base font-semibold text-slate-800">₹{order.advancePayment.toLocaleString('en-IN')}</p>
                             </div>
+                            {order.discount > 0 && (
+                                <div>
+                                    <p className="text-xs text-slate-500 uppercase tracking-wide mb-1">Discount</p>
+                                    <p className="text-base font-semibold text-blue-600">-₹{order.discount.toLocaleString('en-IN')}</p>
+                                </div>
+                            )}
                             <div>
                                 <p className="text-xs text-slate-500 uppercase tracking-wide mb-1">Balance Due</p>
-                                <p className="text-base font-semibold text-red-600">₹{(order.price - order.advancePayment).toLocaleString('en-IN')}</p>
+                                <p className="text-base font-semibold text-red-600">₹{Math.max(0, order.price - order.advancePayment - (order.discount || 0)).toLocaleString('en-IN')}</p>
                             </div>
                         </div>
                     </div>
@@ -449,7 +467,7 @@ const OrderDetailsPage = () => {
                             </div>
                             <div className="bg-red-50 rounded-lg p-2 border border-red-100 flex items-center justify-between">
                                 <p className="text-[10px] text-red-500 uppercase tracking-wide font-bold">Balance Due</p>
-                                <p className="text-sm font-bold text-red-600">₹{(order.price - order.advancePayment).toLocaleString('en-IN')}</p>
+                                <p className="text-sm font-bold text-red-600">₹{Math.max(0, order.price - order.advancePayment - (order.discount || 0)).toLocaleString('en-IN')}</p>
                             </div>
                         </div>
 
@@ -480,10 +498,16 @@ const OrderDetailsPage = () => {
                                     <p className="text-[10px] text-slate-500 uppercase tracking-wide mb-0.5">Advance</p>
                                     <p className="text-sm font-semibold text-slate-600">₹{order.advancePayment.toLocaleString('en-IN')}</p>
                                 </div>
+                                {order.discount > 0 && (
+                                    <div>
+                                        <p className="text-[10px] text-slate-500 uppercase tracking-wide mb-0.5">Discount</p>
+                                        <p className="text-sm font-semibold text-blue-600">-₹{order.discount.toLocaleString('en-IN')}</p>
+                                    </div>
+                                )}
                                 <div className="col-span-2 bg-red-50 rounded-lg p-2 border border-red-100 mt-1">
                                     <div className="flex justify-between items-center">
                                         <p className="text-[10px] text-red-500 uppercase tracking-wide font-bold">Balance Due</p>
-                                        <p className="text-base font-bold text-red-600">₹{(order.price - order.advancePayment).toLocaleString('en-IN')}</p>
+                                        <p className="text-base font-bold text-red-600">₹{Math.max(0, order.price - order.advancePayment - (order.discount || 0)).toLocaleString('en-IN')}</p>
                                     </div>
                                 </div>
                             </div>
@@ -507,7 +531,18 @@ const OrderDetailsPage = () => {
                             </div>
                             <div>
                                 <p className="text-xs text-slate-500 uppercase tracking-wide mb-1">Mobile Number</p>
-                                <p className="text-base font-semibold text-slate-800">{order.customerPhone}</p>
+                                <div className="flex items-center gap-2">
+                                    <p className="text-base font-semibold text-slate-800">{order.customerPhone}</p>
+                                    <a
+                                        href={`tel:${order.customerPhone}`}
+                                        className="p-1.5 bg-green-100 text-green-700 rounded-full hover:bg-green-200 transition-colors flex items-center justify-center"
+                                        title="Call Customer"
+                                    >
+                                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                                        </svg>
+                                    </a>
+                                </div>
                             </div>
                             {order.customerEmail && (
                                 <div>
@@ -554,7 +589,18 @@ const OrderDetailsPage = () => {
                                 </div>
                                 <div>
                                     <p className="text-[10px] text-slate-500 uppercase tracking-wide mb-0.5">Mobile</p>
-                                    <p className="text-sm font-semibold text-slate-800">{order.customerPhone}</p>
+                                    <div className="flex items-center gap-2">
+                                        <p className="text-sm font-semibold text-slate-800">{order.customerPhone}</p>
+                                        <a
+                                            href={`tel:${order.customerPhone}`}
+                                            onClick={(e) => e.stopPropagation()}
+                                            className="p-1 bg-green-100 text-green-700 rounded-full hover:bg-green-200 transition-colors flex items-center justify-center shrink-0"
+                                        >
+                                            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                                            </svg>
+                                        </a>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -568,7 +614,17 @@ const OrderDetailsPage = () => {
                                 </div>
                                 <div>
                                     <p className="text-[10px] text-slate-500 uppercase tracking-wide mb-0.5">Mobile Number</p>
-                                    <p className="text-sm font-semibold text-slate-800">{order.customerPhone}</p>
+                                    <div className="flex items-center gap-2">
+                                        <p className="text-sm font-semibold text-slate-800">{order.customerPhone}</p>
+                                        <a
+                                            href={`tel:${order.customerPhone}`}
+                                            className="p-1.5 bg-green-100 text-green-700 rounded-full hover:bg-green-200 transition-colors flex items-center justify-center shrink-0"
+                                        >
+                                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                                            </svg>
+                                        </a>
+                                    </div>
                                 </div>
                                 {order.customerEmail && (
                                     <div>
@@ -913,7 +969,20 @@ const OrderDetailsPage = () => {
                                                 </select>
                                             </div>
                                             <div className="flex-1">
-                                                <label className="block text-[10px] text-emerald-600 font-medium mb-1">Amount</label>
+                                                <label className="block text-[10px] text-emerald-600 font-medium mb-1">Discount</label>
+                                                <div className="relative">
+                                                    <span className="absolute left-2 top-1.5 text-xs text-slate-400">₹</span>
+                                                    <input
+                                                        type="number"
+                                                        value={discount}
+                                                        onChange={(e) => setDiscount(e.target.value)}
+                                                        min="0"
+                                                        className="w-full text-xs p-1.5 pl-5 rounded border border-emerald-200 focus:outline-none focus:border-emerald-500 text-slate-700"
+                                                    />
+                                                </div>
+                                            </div>
+                                            <div className="flex-1">
+                                                <label className="block text-[10px] text-emerald-600 font-medium mb-1">Final Amount</label>
                                                 <div className="relative">
                                                     <span className="absolute left-2 top-1.5 text-xs text-slate-400">₹</span>
                                                     <input

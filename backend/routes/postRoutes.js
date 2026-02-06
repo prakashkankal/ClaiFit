@@ -7,18 +7,14 @@ import { protect } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
-// Multer Config
+import { compressImage } from '../utils/imageCompressor.js';
+import fs from 'fs';
+
+// Multer Config (Memory Storage for processing)
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const storage = multer.diskStorage({
-    destination(req, file, cb) {
-        cb(null, 'uploads/');
-    },
-    filename(req, file, cb) {
-        cb(null, `${file.fieldname}-${Date.now()}${path.extname(file.originalname)}`);
-    }
-});
+const storage = multer.memoryStorage();
 
 function checkFileType(file, cb) {
     const filetypes = /jpg|jpeg|png|webp/;
@@ -34,6 +30,7 @@ function checkFileType(file, cb) {
 
 const upload = multer({
     storage,
+    limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit before compression
     fileFilter: function (req, file, cb) {
         checkFileType(file, cb);
     }
@@ -42,15 +39,30 @@ const upload = multer({
 // @desc    Upload Post Image
 // @route   POST /api/posts/upload
 // @access  Private
-router.post('/upload', protect, upload.single('image'), (req, res) => {
+router.post('/upload', protect, upload.single('image'), async (req, res) => {
     try {
         if (!req.file) {
             return res.status(400).json({ message: 'No file uploaded' });
         }
+
+        // Generate filename
+        const filename = `post-${Date.now()}-${Math.round(Math.random() * 1E9)}.jpg`;
+        const uploadDir = path.join(process.cwd(), 'uploads'); // Use process.cwd() for reliability
+        const filepath = path.join(uploadDir, filename);
+
+        // Ensure directory exists
+        if (!fs.existsSync(uploadDir)) {
+            fs.mkdirSync(uploadDir, { recursive: true });
+        }
+
+        // Compress and save
+        const compressedBuffer = await compressImage(req.file.buffer, 1000); // 1000px width max
+        fs.writeFileSync(filepath, compressedBuffer);
+
         // Return full URL
         const protocol = req.protocol;
         const host = req.get('host');
-        const fullUrl = `${protocol}://${host}/uploads/${req.file.filename}`;
+        const fullUrl = `${protocol}://${host}/uploads/${filename}`;
 
         res.send(fullUrl);
     } catch (error) {
@@ -100,7 +112,7 @@ router.get('/my-posts', protect, async (req, res) => {
     }
 });
 
-import fs from 'fs';
+
 
 // ... (existing imports and multer config)
 

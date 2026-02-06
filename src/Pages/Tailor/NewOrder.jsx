@@ -299,11 +299,11 @@ const NewOrder = () => {
             // Sanitize: remove all non-digits
             const digitsOnly = (tel || '').replace(/\D/g, '');
 
-            // Normalize: take last 10 digits (common for regional formats)
-            const normalizedPhone = digitsOnly.length > 10 ? digitsOnly.slice(-10) : digitsOnly;
+            // Normalize: use full digits (support country codes like 91...)
+            const normalizedPhone = digitsOnly;
 
             if (normalizedPhone.length < 10) {
-                setError('Selected contact has an invalid phone number format.');
+                setError('Selected contact has an invalid phone number format (less than 10 digits).');
                 return;
             }
 
@@ -521,10 +521,10 @@ const NewOrder = () => {
             return;
         }
 
-        // Validate phone number (basic)
-        const phoneRegex = /^[0-9]{10}$/;
+        // Validate phone number (allow 10-15 digits)
+        const phoneRegex = /^[0-9]{10,15}$/;
         if (!phoneRegex.test(customerInfo.customerPhone.replace(/\s+/g, ''))) {
-            setError('Please enter a valid 10-digit mobile number');
+            setError('Please enter a valid mobile number (10-15 digits)');
             return;
         }
 
@@ -703,11 +703,7 @@ const NewOrder = () => {
 
                     <form onSubmit={handleSubmit}>
                         {/* Error/Success Messages */}
-                        {error && (
-                            <div className="mb-6 p-4 bg-red-50 border-2 border-red-200 rounded-xl text-red-700">
-                                {error}
-                            </div>
-                        )}
+
 
                         {/* Customer Information */}
                         <div className="bg-white border-2 border-dashed border-gray-300 rounded-2xl p-6 mb-6">
@@ -1224,6 +1220,27 @@ const NewOrder = () => {
                                 Send Invoice
                             </a>
                         </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Error Modal */}
+            {error && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+                    <div className="bg-white rounded-xl shadow-2xl max-w-sm w-full p-6 text-center transform transition-all scale-100 border border-red-100">
+                        <div className="w-14 h-14 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                        </div>
+                        <h3 className="text-xl font-bold text-gray-900 mb-2">Error</h3>
+                        <p className="text-gray-600 mb-6">{error}</p>
+                        <button
+                            onClick={() => setError('')}
+                            className="w-full py-3 bg-red-600 text-white rounded-xl font-semibold hover:bg-red-700 transition-colors shadow-lg shadow-red-200 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
+                        >
+                            Dismiss
+                        </button>
                     </div>
                 </div>
             )}

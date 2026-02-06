@@ -114,11 +114,15 @@ router.get('/my-orders/:customerId', async (req, res) => {
 router.get('/:tailorId', async (req, res) => {
     try {
         const { tailorId } = req.params;
-        const { status, page = 1, limit = 10, customerPhone } = req.query;
+        const { status, page = 1, limit = 10, customerPhone, excludeStatus } = req.query;
 
         const query = { tailorId };
         if (status) {
             query.status = status;
+        }
+        if (excludeStatus) {
+            const statusesToExclude = excludeStatus.split(',');
+            query.status = { $nin: statusesToExclude };
         }
         if (customerPhone) {
             query.customerPhone = customerPhone;
@@ -394,6 +398,7 @@ router.put('/:orderId/status', async (req, res) => {
             // If payment details provided, save them
             if (paymentMode) updateData.paymentMode = paymentMode;
             if (finalPaymentAmount !== undefined) updateData.finalPaymentAmount = finalPaymentAmount;
+            if (req.body.discount !== undefined) updateData.discount = req.body.discount;
             // Mark as paid if delivered (assuming COD or Pre-paid confirmed at delivery)
             updateData.isPaid = true;
         }
@@ -403,6 +408,27 @@ router.put('/:orderId/status', async (req, res) => {
             updateData,
             { new: true, runValidators: true }
         );
+
+        // Update Invoice if it exists with discount and new totals
+        if (status === 'Delivered') {
+            try {
+                const discount = Number(updatedOrder.discount || 0);
+                const totalAmount = Number(updatedOrder.price); // Subtotal
+                const advance = Number(updatedOrder.advancePayment || 0);
+                const due = Math.max(0, totalAmount - advance - discount);
+
+                await Invoice.findOneAndUpdate(
+                    { orderId: updatedOrder._id },
+                    {
+                        discount: discount,
+                        dueAmount: due,
+                        paymentStatus: 'Paid'
+                    }
+                );
+            } catch (invErr) {
+                console.error('Error updating invoice with discount:', invErr);
+            }
+        }
 
         // Generate Invoice Image Link if Delivered (no text invoice)
         let whatsappMessage = '';
@@ -700,8 +726,23 @@ router.get('/:orderId/invoice', async (req, res) => {
 
         // Total
         doc.fontSize(12).font('Helvetica-Bold').fillColor('#000000');
+
+        // Add Discount if any
+        if (order.discount > 0) {
+            doc.font('Helvetica').fontSize(10);
+            doc.text('Discount', totalXLabel, y, { align: 'right', width: 140 });
+            doc.text(`- ${order.discount.toFixed(2)}`, totalXValue, y, { width: 100, align: 'center' });
+            y += 15;
+            // Add Divider again
+            doc.rect(totalXLabel, y, 250, 1).fill('#4472C4');
+            y += 10;
+        }
+
+        const finalTotal = Math.max(0, order.price - order.advancePayment - (order.discount || 0));
+
+        doc.fontSize(12).font('Helvetica-Bold').fillColor('#000000');
         doc.text('TOTAL', totalXLabel, y, { align: 'right', width: 140 });
-        doc.text('Rs. ' + (order.price - order.advancePayment).toFixed(2), totalXValue, y, { width: 100, align: 'center' });
+        doc.text('Rs. ' + finalTotal.toFixed(2), totalXValue, y, { width: 100, align: 'center' });
 
         // Paid Stamp if delivered
         doc.moveDown(4);

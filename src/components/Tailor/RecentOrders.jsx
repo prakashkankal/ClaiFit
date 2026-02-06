@@ -15,8 +15,8 @@ const RecentOrders = ({ tailorId }) => {
 
         try {
             setLoading(true);
-            // Fetch recent 20 orders
-            const { data } = await axios.get(`${API_URL}/api/orders/${tailorId}?limit=20`);
+            // Fetch recent 20 orders, excluding Cancelled and Delivered
+            const { data } = await axios.get(`${API_URL}/api/orders/${tailorId}?limit=20&excludeStatus=Cancelled,Delivered`);
             const allOrders = data.orders || [];
 
             // Filter Drafts
@@ -400,7 +400,18 @@ const RecentOrders = ({ tailorId }) => {
                                             // Only stop prop for action clicks, not the container
                                         }}
                                     >
-                                        <div className="relative">
+                                        <div className="relative flex items-center gap-2">
+                                            {order.customerPhone && (
+                                                <a
+                                                    href={`tel:${order.customerPhone}`}
+                                                    className="w-10 h-10 bg-green-100 text-green-700 rounded-full flex items-center justify-center hover:bg-green-200 active:scale-95 transition-all outline-none"
+                                                    aria-label="Call Customer"
+                                                >
+                                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                                                    </svg>
+                                                </a>
+                                            )}
                                             {order.status === 'Draft' ? (
                                                 <button
                                                     onClick={(e) => handleDeleteDraft(e, order._id)}
