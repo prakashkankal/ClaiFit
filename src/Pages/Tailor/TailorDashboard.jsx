@@ -115,13 +115,13 @@ const TailorDashboard = () => {
             />
 
             {/* Main Content */}
-            <main className="flex-1 lg:ml-72 p-3 md:p-6 lg:p-8 dashboard-main-mobile pb-24 md:pb-8">
-                <header className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-3 md:gap-4 mb-4 md:mb-8 dashboard-header-mobile">
+            <main className="flex-1 lg:ml-72 p-2.5 md:p-6 lg:p-8 dashboard-main-mobile pb-24 md:pb-8 max-w-full overflow-x-hidden">
+                <header className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-2 md:gap-4 mb-3 md:mb-8 dashboard-header-mobile">
                     <div className="w-full lg:w-auto">
-                        <h1 className="text-2xl md:text-3xl font-serif font-bold text-slate-800">
+                        <h1 className="text-xl md:text-3xl font-serif font-bold text-slate-800">
                             Welcome back, {getFirstName(tailorData.name)}!
                         </h1>
-                        <p className="text-sm md:text-base text-slate-600 font-medium mt-1">{dashboardSummary}</p>
+                        <p className="text-xs md:text-base text-slate-600 font-medium mt-0.5 md:mt-1">{dashboardSummary}</p>
                     </div>
 
                     {/* New Order Button - Desktop Only */}
@@ -143,10 +143,10 @@ const TailorDashboard = () => {
             {/* Mobile Floating Action Button (New Order) */}
             <button
                 onClick={() => navigate('/new-order')}
-                className="lg:hidden fixed bottom-24 md:bottom-28 right-6 w-14 h-14 bg-linear-to-r from-[#6b4423] to-[#8b5a3c] text-white rounded-full shadow-2xl flex items-center justify-center z-50 hover:scale-110 active:scale-95 transition-all duration-200 ring-4 ring-white"
+                className="lg:hidden fixed bottom-20 md:bottom-28 right-4 w-12 h-12 bg-linear-to-r from-[#6b4423] to-[#8b5a3c] text-white rounded-full shadow-2xl flex items-center justify-center z-50 hover:scale-110 active:scale-95 transition-all duration-200 ring-4 ring-white"
                 aria-label="New Order"
             >
-                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 4v16m8-8H4" />
                 </svg>
             </button>

@@ -39,6 +39,23 @@ const RecentOrders = ({ tailorId }) => {
         fetchOrders();
     }, [tailorId]);
 
+    // Close menu when clicking outside
+    useEffect(() => {
+        const handleClickOutside = () => {
+            if (openMenuId) {
+                setOpenMenuId(null);
+            }
+        };
+
+        if (openMenuId) {
+            document.addEventListener('click', handleClickOutside);
+        }
+
+        return () => {
+            document.removeEventListener('click', handleClickOutside);
+        };
+    }, [openMenuId]);
+
     const formatDate = (dateString) => {
         if (!dateString) return '-';
         const date = new Date(dateString);
@@ -297,7 +314,10 @@ const RecentOrders = ({ tailorId }) => {
                                         ) : (
                                             <>
                                                 <button
-                                                    onClick={() => setOpenMenuId(openMenuId === order._id ? null : order._id)}
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setOpenMenuId(openMenuId === order._id ? null : order._id);
+                                                    }}
                                                     className="w-10 h-10 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center"
                                                     aria-label="Order actions"
                                                 >
@@ -306,7 +326,10 @@ const RecentOrders = ({ tailorId }) => {
                                                     </svg>
                                                 </button>
                                                 {openMenuId === order._id && (
-                                                    <div className="absolute right-0 top-12 z-20 w-44 rounded-xl border border-slate-200 bg-white shadow-lg p-1">
+                                                    <div
+                                                        className="absolute right-0 top-12 z-60 w-44 rounded-xl border border-slate-200 bg-white shadow-lg p-1"
+                                                        onClick={(e) => e.stopPropagation()}
+                                                    >
                                                         <button
                                                             onClick={() => {
                                                                 handleSendInvoice(order);
@@ -358,56 +381,56 @@ const RecentOrders = ({ tailorId }) => {
                     </div>
 
                     {/* Mobile View: Compact List Layout */}
-                    <div className="md:hidden flex flex-col divide-y divide-gray-100 bg-white rounded-b-3xl">
+                    <div className="md:hidden flex flex-col divide-y divide-gray-100 bg-white rounded-b-3xl relative">
                         {orders.map((order) => {
                             const dueDateInfo = getDueDateDisplay(order.dueDate);
                             return (
                                 <div
                                     key={order._id}
                                     onClick={() => handleCardClick(order)}
-                                    className="flex items-center justify-between p-3 active:bg-slate-50 transition-colors cursor-pointer min-h-[72px]"
+                                    className="flex items-center justify-between p-2 active:bg-slate-50 transition-colors cursor-pointer min-h-[60px]"
                                 >
                                     {/* Left: Customer & ID */}
-                                    <div className="flex flex-col min-w-0 flex-1 pr-3">
-                                        <p className="text-base font-bold text-slate-800 truncate mb-0.5">
+                                    <div className="flex flex-col min-w-0 flex-1 pr-2">
+                                        <p className="text-sm font-bold text-slate-800 truncate mb-0.5">
                                             {order.customerName}
                                         </p>
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-xs font-medium text-slate-500">
+                                        <div className="flex items-center gap-1.5">
+                                            <span className="text-[10px] font-medium text-slate-500">
                                                 #{order._id.slice(-6).toUpperCase()}
                                             </span>
                                         </div>
                                     </div>
 
                                     {/* Center: Status & Due Date */}
-                                    <div className="flex flex-col items-center min-w-[100px] px-2">
-                                        <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold mb-1 whitespace-nowrap ${getStatusBadge(order.status)}`}>
-                                            {order.status === 'Cutting Completed' ? 'Stitching' : order.status}
+                                    <div className="flex flex-col items-center px-1.5 shrink-0">
+                                        <span className={`inline-block px-1.5 py-0.5 rounded-full text-[9px] font-bold mb-0.5 whitespace-nowrap ${getStatusBadge(order.status)}`}>
+                                            {order.status === 'Cutting Completed' ? 'Stitching' : order.status === 'Order Created' ? 'Cutting' : order.status}
                                         </span>
-                                        <span className={`text-xs font-bold ${dueDateInfo.className} text-center`}>
-                                            {dueDateInfo.text.replace(/ \(.*\)/, '')}
-                                            {dueDateInfo.text.includes('overdue') && <span className="block text-[10px] font-extrabold text-red-600">Overdue</span>}
-                                            {dueDateInfo.text.includes('Today') && <span className="block text-[10px] font-extrabold text-orange-600">Today</span>}
-                                            {dueDateInfo.text.includes('left') && <span className="block text-[10px] font-bold text-amber-600">{dueDateInfo.text.match(/\d+d left/)?.[0]}</span>}
+                                        <span className={`text-[10px] font-semibold ${dueDateInfo.className} text-center leading-tight`}>
+                                            {dueDateInfo.text.replace(/ \\(.*\\)/, '')}
+                                            {dueDateInfo.text.includes('overdue') && <span className="block text-[9px] font-extrabold text-red-600">Overdue</span>}
+                                            {dueDateInfo.text.includes('Today') && <span className="block text-[9px] font-extrabold text-orange-600">Today</span>}
+                                            {dueDateInfo.text.includes('left') && <span className="block text-[9px] font-semibold text-amber-600">{dueDateInfo.text.match(/\\d+d left/)?.[0]}</span>}
                                         </span>
                                     </div>
 
                                     {/* Right: Actions Menu */}
                                     <div
-                                        className="pl-3 shrink-0"
+                                        className="pl-1.5 shrink-0"
                                         onClick={(e) => {
                                             e.stopPropagation();
                                             // Only stop prop for action clicks, not the container
                                         }}
                                     >
-                                        <div className="relative flex items-center gap-2">
+                                        <div className="relative flex items-center gap-1.5">
                                             {order.customerPhone && (
                                                 <a
                                                     href={`tel:${order.customerPhone}`}
-                                                    className="w-10 h-10 bg-green-100 text-green-700 rounded-full flex items-center justify-center hover:bg-green-200 active:scale-95 transition-all outline-none"
+                                                    className="w-8 h-8 bg-green-100 text-green-700 rounded-full flex items-center justify-center hover:bg-green-200 active:scale-95 transition-all outline-none"
                                                     aria-label="Call Customer"
                                                 >
-                                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
                                                     </svg>
                                                 </a>
@@ -415,26 +438,32 @@ const RecentOrders = ({ tailorId }) => {
                                             {order.status === 'Draft' ? (
                                                 <button
                                                     onClick={(e) => handleDeleteDraft(e, order._id)}
-                                                    className="w-10 h-10 bg-red-50 text-red-500 rounded-full flex items-center justify-center hover:bg-red-100 active:scale-95 transition-all outline-none"
+                                                    className="w-8 h-8 bg-red-50 text-red-500 rounded-full flex items-center justify-center hover:bg-red-100 active:scale-95 transition-all outline-none"
                                                     aria-label="Delete Draft"
                                                 >
-                                                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                                                     </svg>
                                                 </button>
                                             ) : (
                                                 <>
                                                     <button
-                                                        onClick={() => setOpenMenuId(openMenuId === order._id ? null : order._id)}
-                                                        className="w-10 h-10 bg-slate-100 text-slate-600 rounded-full flex items-center justify-center hover:bg-slate-200 active:scale-95 transition-all outline-none"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setOpenMenuId(openMenuId === order._id ? null : order._id);
+                                                        }}
+                                                        className="w-8 h-8 bg-slate-100 text-slate-600 rounded-full flex items-center justify-center hover:bg-slate-200 active:scale-95 transition-all outline-none"
                                                         aria-label="Order actions"
                                                     >
-                                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v.01M12 12v.01M12 18v.01" />
                                                         </svg>
                                                     </button>
                                                     {openMenuId === order._id && (
-                                                        <div className="absolute right-0 top-12 z-20 w-44 rounded-xl border border-slate-200 bg-white shadow-lg p-1">
+                                                        <div
+                                                            className="absolute right-0 top-10 z-60 w-44 rounded-xl border border-slate-200 bg-white shadow-lg p-1"
+                                                            onClick={(e) => e.stopPropagation()}
+                                                        >
                                                             <button
                                                                 onClick={() => {
                                                                     handleSendInvoice(order);

@@ -250,15 +250,15 @@
     /* Remove sidebar margin on mobile */
     .dashboard-main-mobile {
         margin-left: 0 !important;
-        padding: 1rem !important;
-        padding-top: 5rem !important;
+        padding: 0.625rem !important;
+        padding-top: 4rem !important;
     }
 
     /* Stack dashboard header vertically */
     .dashboard-header-mobile {
         flex-direction: column !important;
         align-items: flex-start !important;
-        gap: 1rem !important;
+        gap: 0.5rem !important;
     }
 
     .dashboard-header-mobile button {
