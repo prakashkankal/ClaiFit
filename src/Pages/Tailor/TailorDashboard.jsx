@@ -106,7 +106,7 @@ const TailorDashboard = () => {
     }
 
     return (
-        <div className="w-full min-h-screen flex bg-[#f5f5f0] text-slate-900">
+        <div className="w-full max-w-[100vw] overflow-x-hidden min-h-screen flex bg-[#f5f5f0] text-slate-900">
             {/* Sidebar with Profile Modal */}
             <DashboardSidebar
                 tailorData={tailorData}
