@@ -148,9 +148,25 @@ const RecentOrders = ({ tailorId }) => {
             `Thank you,\nKStitch`;
     };
 
+    const formatPhoneNumber = (phone) => {
+        if (!phone) return '';
+        // Remove any spaces, dashes, or special characters
+        let cleaned = phone.replace(/[\s\-\(\)]/g, '');
+
+        // Add +91 country code if not present
+        if (!cleaned.startsWith('+')) {
+            if (cleaned.startsWith('91')) {
+                cleaned = '+' + cleaned;
+            } else {
+                cleaned = '+91' + cleaned;
+            }
+        }
+        return cleaned;
+    };
+
     const handleSendInvoice = (order) => {
         if (!order?.customerPhone) return;
-        const phone = order.customerPhone.replace(/[^0-9]/g, '');
+        const phone = formatPhoneNumber(order.customerPhone);
 
         if (isImageInvoiceStatus(order.status)) {
             const invoiceLink = getInvoiceImageLink(order._id);
@@ -175,7 +191,7 @@ const RecentOrders = ({ tailorId }) => {
         }
 
         if (!order?.customerPhone) return;
-        const phone = order.customerPhone.replace(/[^0-9]/g, '');
+        const phone = formatPhoneNumber(order.customerPhone);
         const message = buildTextInvoiceMessage(order);
         const whatsappUrl = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
         window.open(whatsappUrl, '_blank');
