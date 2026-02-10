@@ -48,9 +48,28 @@ const OrderDetailsPage = () => {
                 throw new Error('Web Share API not supported');
             }
         } catch (shareErr) {
-            console.log('Falling back to invoice image link:', shareErr);
+            console.log('Falling back to WhatsApp share:', shareErr);
+
+            // Format phone number with country code
+            let phoneNumber = order.customerPhone;
+
+            // Remove any spaces, dashes, or special characters
+            phoneNumber = phoneNumber.replace(/[\s\-\(\)]/g, '');
+
+            // Add +91 country code if not present
+            if (!phoneNumber.startsWith('+')) {
+                if (phoneNumber.startsWith('91')) {
+                    phoneNumber = '+' + phoneNumber;
+                } else {
+                    phoneNumber = '+91' + phoneNumber;
+                }
+            }
+
             const invoiceUrl = deliveryData.invoiceImageLink || `${API_URL}/api/orders/${order._id}/invoice-jpg`;
-            window.open(invoiceUrl, '_blank');
+            const message = `Thank you for your order! Here's your invoice for Order #${order._id.slice(-6).toUpperCase()}. Total Amount: ₹${order.price}. You can view your invoice here: ${invoiceUrl}`;
+            const whatsappUrl = `https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`;
+
+            window.open(whatsappUrl, '_blank');
         }
     };
 
