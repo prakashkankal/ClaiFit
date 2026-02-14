@@ -43,6 +43,9 @@ const RecentOrders = ({ tailorId }) => {
 
             // Filter logic: Keep orders with pending payment OR not delivered yet
             const filteredOrders = allOrders.filter(order => {
+                // Manual bills should not appear in Recent tab
+                if (order.isManualBill) return false;
+
                 // Always show drafts
                 if (order.status === 'Draft') return true;
 

@@ -8,6 +8,8 @@ const NewOrder = () => {
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
     const draftId = searchParams.get('draftId'); // Get draft ID from URL
+    const isManualBillMode = searchParams.get('mode') === 'manual-bill';
+    const [orderEntryMode, setOrderEntryMode] = useState(isManualBillMode ? 'manual' : 'measurement');
 
     const [tailorData, setTailorData] = useState(null);
     const [presets, setPresets] = useState([]);
@@ -28,6 +30,7 @@ const NewOrder = () => {
     const suggestionRef = useRef(null);
     const dateInputRef = useRef(null);
     const advancePaymentRef = useRef(null);
+    const manualPayLaterDateRef = useRef(null);
 
     // Measurement Autofill State
     const [pastOrders, setPastOrders] = useState([]);
@@ -57,6 +60,14 @@ const NewOrder = () => {
             notes: ''
         }
     ]);
+    const [manualPaymentData, setManualPaymentData] = useState({
+        discountAmount: '',
+        paymentMode: '', // Pay Now | Pay Later | Partial
+        payNowAmount: '',
+        payLaterDate: '',
+        cashPaymentMode: ''
+    });
+    const [manualPaymentErrors, setManualPaymentErrors] = useState({});
 
     useEffect(() => {
         // Get logged-in tailor data from localStorage
@@ -102,6 +113,7 @@ const NewOrder = () => {
             const draft = data.order;
 
             if (draft && draft.status === 'Draft') {
+                setOrderEntryMode(draft.isManualBill ? 'manual' : 'measurement');
                 // Populate form
                 setCustomerInfo({
                     customerName: draft.customerName || '',
@@ -399,6 +411,88 @@ const NewOrder = () => {
         ));
     };
 
+    const parseDdMmYyyyToIso = (value) => {
+        if (!value || !value.includes('/')) return value;
+        const [d, m, y] = value.split('/');
+        if (!d || !m || !y) return value;
+        return `${y}-${m}-${d}`;
+    };
+
+    const getManualPaymentSummary = () => {
+        const grossAmount = calculateGrandTotal();
+        const discount = Math.max(0, parseFloat(manualPaymentData.discountAmount) || 0);
+        const finalPayable = Math.max(0, grossAmount - discount);
+        const payNow = Math.max(0, parseFloat(manualPaymentData.payNowAmount) || 0);
+        const remaining = Math.max(0, finalPayable - payNow);
+
+        return {
+            grossAmount,
+            discount,
+            finalPayable,
+            payNow,
+            remaining
+        };
+    };
+
+    const validateManualPayment = () => {
+        const errors = {};
+        const summary = getManualPaymentSummary();
+        const mode = manualPaymentData.paymentMode;
+
+        if (!mode) {
+            errors.paymentMode = 'Please select payment mode';
+        }
+
+        if (summary.discount > summary.grossAmount) {
+            errors.discountAmount = 'Discount cannot exceed total amount';
+        }
+
+        if (mode === 'Pay Now') {
+            if (!(summary.payNow > 0)) {
+                errors.payNowAmount = 'Pay Now amount is required';
+            } else if (summary.payNow > summary.finalPayable) {
+                errors.payNowAmount = 'Pay Now amount cannot exceed final payable';
+            }
+            if (!manualPaymentData.cashPaymentMode) {
+                errors.cashPaymentMode = 'Please select payment method';
+            }
+        }
+
+        if (mode === 'Partial') {
+            if (!(summary.payNow > 0)) {
+                errors.payNowAmount = 'Pay Now amount is required for partial payment';
+            } else if (summary.payNow >= summary.finalPayable) {
+                errors.payNowAmount = 'Partial payment amount must be less than final payable';
+            }
+            if (!manualPaymentData.payLaterDate) {
+                errors.payLaterDate = 'Due date is required for remaining amount';
+            }
+            if (!manualPaymentData.cashPaymentMode) {
+                errors.cashPaymentMode = 'Please select payment method';
+            }
+        }
+
+        if (mode === 'Pay Later') {
+            if (!manualPaymentData.payLaterDate) {
+                errors.payLaterDate = 'Due date is required for pay later';
+            }
+        }
+
+        if ((mode === 'Pay Later' || mode === 'Partial') && manualPaymentData.payLaterDate) {
+            const dueDate = new Date(parseDdMmYyyyToIso(manualPaymentData.payLaterDate));
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            if (isNaN(dueDate.getTime())) {
+                errors.payLaterDate = 'Invalid due date';
+            } else if (dueDate < today) {
+                errors.payLaterDate = 'Due date cannot be in the past';
+            }
+        }
+
+        setManualPaymentErrors(errors);
+        return Object.keys(errors).length === 0;
+    };
+
     const handlePresetChange = (index, presetId) => {
         if (presetId === 'custom') {
             setOrderItems(prev => prev.map((item, i) =>
@@ -499,7 +593,8 @@ const NewOrder = () => {
                 advancePayment: customerInfo.advancePayment ? parseFloat(customerInfo.advancePayment) : 0,
                 orderItems: preparedItems,
                 price: calculateGrandTotal() || 0, // Ensure price is valid number for Model
-                status: 'Draft'
+                status: 'Draft',
+                isManualBill: orderEntryMode === 'manual'
             };
 
             if (draftId) {
@@ -530,7 +625,7 @@ const NewOrder = () => {
             setError('Mobile number is required');
             return;
         }
-        if (!customerInfo.dueDate) {
+        if (orderEntryMode !== 'manual' && !customerInfo.dueDate) {
             setError('Due date is required');
             return;
         }
@@ -543,35 +638,54 @@ const NewOrder = () => {
         }
 
         const totalAmount = calculateGrandTotal();
-        const advanceAmount = parseFloat(customerInfo.advancePayment) || 0;
+        let orderPaymentData = {};
+        let advanceAmount = parseFloat(customerInfo.advancePayment) || 0;
 
-        // Validate Advance Payment based on Payment Mode
-        if (customerInfo.paymentMode !== 'Pay Later') {
-            if (!customerInfo.advancePayment || advanceAmount <= 0) {
-                // But wait, 0 might be allowed if total is 0? Generally advance implies partial.
-                // Requirement: "advancePayment must be enabled... required."
-                // "If empty and user clicks Create Order, show validation error."
-                // Usually advance payment requires *some* amount for Cash/Online to confirm.
-                // Assuming strict Required > 0 check, or just non-empty. 
-                // If the user enters 0, it satisfies "required" in HTML but logically it might be wrong for Cash/Online?
-                // Let's assume validation means "Value provided and valid".
-                if (!customerInfo.advancePayment) {
-                    setError('Advance payment is required for Cash or Online mode.');
-                    // Scroll to section
-                    if (advancePaymentRef.current) {
-                        advancePaymentRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                        // Try to find input to focus
-                        const input = advancePaymentRef.current.querySelector('input[name="advancePayment"]');
-                        if (input) input.focus();
+        if (orderEntryMode === 'manual') {
+            if (!validateManualPayment()) {
+                setError('Please complete manual payment section correctly.');
+                return;
+            }
+
+            const summary = getManualPaymentSummary();
+            const selectedMode = manualPaymentData.paymentMode;
+            const payLaterEnabled = selectedMode === 'Pay Later' || selectedMode === 'Partial';
+            const paymentStatus = summary.remaining === 0
+                ? 'paid'
+                : (selectedMode === 'Pay Later' ? 'scheduled' : 'partial');
+
+            advanceAmount = summary.payNow;
+            orderPaymentData = {
+                discountAmount: summary.discount,
+                discount: summary.discount,
+                paymentStatus,
+                currentPaymentAmount: summary.payNow,
+                remainingAmount: summary.remaining,
+                payLaterEnabled,
+                payLaterAmount: payLaterEnabled ? summary.remaining : 0,
+                payLaterDate: payLaterEnabled ? parseDdMmYyyyToIso(manualPaymentData.payLaterDate) : undefined,
+                paymentMode: manualPaymentData.cashPaymentMode
+            };
+        } else {
+            // Validate Advance Payment based on Payment Mode
+            if (customerInfo.paymentMode !== 'Pay Later') {
+                if (!customerInfo.advancePayment || advanceAmount <= 0) {
+                    if (!customerInfo.advancePayment) {
+                        setError('Advance payment is required for Cash or Online mode.');
+                        if (advancePaymentRef.current) {
+                            advancePaymentRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                            const input = advancePaymentRef.current.querySelector('input[name="advancePayment"]');
+                            if (input) input.focus();
+                        }
+                        return;
                     }
-                    return;
                 }
             }
-        }
 
-        if (advanceAmount > totalAmount) {
-            setError('Advance payment cannot be greater than total amount');
-            return;
+            if (advanceAmount > totalAmount) {
+                setError('Advance payment cannot be greater than total amount');
+                return;
+            }
         }
 
         // Validate order items
@@ -612,14 +726,20 @@ const NewOrder = () => {
                 customerName: customerInfo.customerName.trim(),
                 customerPhone: customerInfo.customerPhone.trim(),
                 customerEmail: customerInfo.customerEmail.trim() || undefined,
-                dueDate: (() => {
-                    const [d, m, y] = customerInfo.dueDate.split('/');
-                    return `${y}-${m}-${d}`;
-                })(),
+                dueDate: orderEntryMode === 'manual'
+                    ? new Date().toISOString().split('T')[0]
+                    : (() => {
+                        const [d, m, y] = customerInfo.dueDate.split('/');
+                        return `${y}-${m}-${d}`;
+                    })(),
                 notes: customerInfo.notes.trim() || undefined,
-                advancePayment: customerInfo.paymentMode === 'Pay Later' ? 0 : (parseFloat(customerInfo.advancePayment) || 0),
-                paymentMode: customerInfo.paymentMode,
-                orderItems: preparedItems
+                advancePayment: orderEntryMode === 'manual'
+                    ? 0
+                    : (customerInfo.paymentMode === 'Pay Later' ? 0 : (parseFloat(customerInfo.advancePayment) || 0)),
+                paymentMode: orderEntryMode === 'manual' ? manualPaymentData.cashPaymentMode : customerInfo.paymentMode,
+                orderItems: preparedItems,
+                isManualBill: orderEntryMode === 'manual',
+                ...orderPaymentData
             };
 
             console.log('Creating/Updating multi-item order:', orderData);
@@ -702,6 +822,61 @@ const NewOrder = () => {
         }
     };
 
+    const formatPhoneNumber = (phone) => {
+        if (!phone) return '';
+        let cleaned = String(phone).replace(/[\s\-\(\)]/g, '');
+        if (!cleaned.startsWith('+')) {
+            cleaned = cleaned.startsWith('91') ? `+${cleaned}` : `+91${cleaned}`;
+        }
+        return cleaned;
+    };
+
+    const handleShareInvoiceImage = async () => {
+        if (!createdOrder?._id) return;
+
+        try {
+            const invoiceUrl = `${API_URL}/api/orders/${createdOrder._id}/invoice-jpg`;
+            const response = await fetch(invoiceUrl);
+            const blob = await response.blob();
+
+            const fileName = `Invoice_${createdOrder._id.slice(-6).toUpperCase()}_${(createdOrder.customerName || customerInfo.customerName || 'Customer').replace(/\s+/g, '_')}.jpg`;
+            const file = new File([blob], fileName, { type: 'image/jpeg' });
+
+            const phone = formatPhoneNumber(createdOrder.customerPhone || customerInfo.customerPhone);
+
+            if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+                try {
+                    await navigator.share({ files: [file] });
+                    setShowInvoiceModal(false);
+                    navigate('/dashboard');
+                    return;
+                } catch (shareError) {
+                    if (shareError?.name !== 'AbortError') throw shareError;
+                }
+            }
+
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = fileName;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+
+            await new Promise(resolve => setTimeout(resolve, 500));
+            if (phone) {
+                window.open(`https://wa.me/${phone}`, '_blank');
+            }
+
+            setShowInvoiceModal(false);
+            navigate('/dashboard');
+        } catch (shareErr) {
+            console.error('Error sharing invoice image:', shareErr);
+            setError('Failed to share invoice image. Please try again.');
+        }
+    };
+
     if (!tailorData) {
         return (
             <div className="w-full min-h-screen flex items-center justify-center bg-[#f5f5f0]">
@@ -734,12 +909,22 @@ const NewOrder = () => {
                                 </svg>
                             </button>
                             <h1 className="text-2xl font-serif font-bold text-slate-800 flex items-center gap-2">
-                                New Order
+                                {orderEntryMode === 'manual' ? 'Manual Bill' : 'New Order'}
                                 <svg className="w-7 h-7 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
                             </h1>
                         </div>
-                        <p className="text-slate-500">Create a new order with one or more garments</p>
+                        <p className="text-slate-500">
+                            {orderEntryMode === 'manual'
+                                ? 'Create a bill quickly without entering measurements'
+                                : 'Create a new order with one or more garments'}
+                        </p>
                     </header>
+
+                    {orderEntryMode === 'manual' && (
+                        <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                            Manual billing mode is active. Measurements are optional and hidden for faster billing.
+                        </div>
+                    )}
 
                     <form onSubmit={handleSubmit}>
                         {/* Error/Success Messages */}
@@ -834,61 +1019,87 @@ const NewOrder = () => {
                                         placeholder="customer@email.com"
                                     />
                                 </div>
-                                <div>
-                                    <label htmlFor="dueDate" className="block text-sm font-medium text-slate-700 mb-2">
-                                        Due Date <span className="text-red-500">*</span>
-                                    </label>
-                                    <div className="relative">
-                                        <input
-                                            type="text"
-                                            id="dueDate"
-                                            name="dueDate"
-                                            value={customerInfo.dueDate}
-                                            onChange={(e) => {
-                                                let value = e.target.value.replace(/\D/g, ''); // Remove non-numeric characters
-                                                if (value.length > 2) {
-                                                    value = value.slice(0, 2) + '/' + value.slice(2);
-                                                }
-                                                if (value.length > 5) {
-                                                    value = value.slice(0, 5) + '/' + value.slice(5);
-                                                }
-                                                // Ensure we respect the max length for a date (10 chars: DD/MM/YYYY)
-                                                if (value.length > 10) value = value.slice(0, 10);
-
-                                                setCustomerInfo(prev => ({ ...prev, dueDate: value }));
-                                            }}
-                                            maxLength="10"
-                                            required
-                                            placeholder="DD/MM/YYYY"
-                                            className="w-full pl-4 pr-12 py-2.5 bg-slate-50 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#6b4423] focus:border-transparent"
-                                        />
-                                        <button
-                                            type="button"
-                                            onClick={() => dateInputRef.current.showPicker()}
-                                            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-[#6b4423] transition-colors p-1"
-                                        >
-                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                            </svg>
-                                        </button>
-                                        <input
-                                            type="date"
-                                            id="hiddenDatePicker"
-                                            ref={dateInputRef}
-                                            min={new Date().toISOString().split('T')[0]}
-                                            onChange={(e) => {
-                                                const dateVal = e.target.value; // YYYY-MM-DD
-                                                if (dateVal) {
-                                                    const [year, month, day] = dateVal.split('-');
-                                                    const formatted = `${day}/${month}/${year}`;
-                                                    setCustomerInfo(prev => ({ ...prev, dueDate: formatted }));
-                                                }
-                                            }}
-                                            className="absolute opacity-0 pointer-events-none w-0 h-0"
-                                            tabIndex={-1}
-                                        />
+                                {orderEntryMode !== 'manual' && (
+                                    <div>
+                                        <label htmlFor="dueDate" className="block text-sm font-medium text-slate-700 mb-2">
+                                            Due Date <span className="text-red-500">*</span>
+                                        </label>
+                                        <div className="relative">
+                                            <input
+                                                type="text"
+                                                id="dueDate"
+                                                name="dueDate"
+                                                value={customerInfo.dueDate}
+                                                onChange={(e) => {
+                                                    let value = e.target.value.replace(/\D/g, '');
+                                                    if (value.length > 2) {
+                                                        value = value.slice(0, 2) + '/' + value.slice(2);
+                                                    }
+                                                    if (value.length > 5) {
+                                                        value = value.slice(0, 5) + '/' + value.slice(5);
+                                                    }
+                                                    if (value.length > 10) value = value.slice(0, 10);
+                                                    setCustomerInfo(prev => ({ ...prev, dueDate: value }));
+                                                }}
+                                                maxLength="10"
+                                                required
+                                                placeholder="DD/MM/YYYY"
+                                                className="w-full pl-4 pr-12 py-2.5 bg-slate-50 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#6b4423] focus:border-transparent"
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => dateInputRef.current.showPicker()}
+                                                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-[#6b4423] transition-colors p-1"
+                                            >
+                                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                                </svg>
+                                            </button>
+                                            <input
+                                                type="date"
+                                                id="hiddenDatePicker"
+                                                ref={dateInputRef}
+                                                min={new Date().toISOString().split('T')[0]}
+                                                onChange={(e) => {
+                                                    const dateVal = e.target.value;
+                                                    if (dateVal) {
+                                                        const [year, month, day] = dateVal.split('-');
+                                                        const formatted = `${day}/${month}/${year}`;
+                                                        setCustomerInfo(prev => ({ ...prev, dueDate: formatted }));
+                                                    }
+                                                }}
+                                                className="absolute opacity-0 pointer-events-none w-0 h-0"
+                                                tabIndex={-1}
+                                            />
+                                        </div>
                                     </div>
-                                </div>
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="bg-white border border-slate-200 rounded-xl p-4 mb-6">
+                            <p className="text-sm font-medium text-slate-700 mb-3">Order Type</p>
+                            <div className="inline-flex rounded-lg border border-slate-300 overflow-hidden">
+                                <button
+                                    type="button"
+                                    onClick={() => setOrderEntryMode('manual')}
+                                    className={`px-4 py-2 text-sm font-semibold transition-colors ${orderEntryMode === 'manual'
+                                        ? 'bg-amber-600 text-white'
+                                        : 'bg-white text-slate-700 hover:bg-slate-50'
+                                        }`}
+                                >
+                                    Manual
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setOrderEntryMode('measurement')}
+                                    className={`px-4 py-2 text-sm font-semibold transition-colors ${orderEntryMode === 'measurement'
+                                        ? 'bg-[#6b4423] text-white'
+                                        : 'bg-white text-slate-700 hover:bg-slate-50'
+                                        }`}
+                                >
+                                    Measurement
+                                </button>
                             </div>
                         </div>
 
@@ -950,7 +1161,7 @@ const NewOrder = () => {
                                                             Garment Type <span className="text-red-500">*</span>
                                                         </label>
                                                         <div className="relative">
-                                                            {!item.isCustomType ? (
+                                                            {orderEntryMode === 'manual' || !item.isCustomType ? (
                                                                 <select
                                                                     value={item.selectedPresetId || ''}
                                                                     onChange={(e) => handlePresetChange(itemIndex, e.target.value)}
@@ -962,7 +1173,9 @@ const NewOrder = () => {
                                                                             {preset.name}
                                                                         </option>
                                                                     ))}
-                                                                    <option value="custom">+ Custom Type</option>
+                                                                    {orderEntryMode !== 'manual' && (
+                                                                        <option value="custom">+ Custom Type</option>
+                                                                    )}
                                                                 </select>
                                                             ) : (
                                                                 <div className="flex gap-2">
@@ -992,7 +1205,7 @@ const NewOrder = () => {
                                                             )}
 
                                                             {/* Autofill CTA */}
-                                                            {currentAutofill && item.isCustomType && (
+                                                            {orderEntryMode !== 'manual' && currentAutofill && item.isCustomType && (
                                                                 <button
                                                                     type="button"
                                                                     onClick={() => handleAutofillMeasurements(itemIndex)}
@@ -1045,7 +1258,7 @@ const NewOrder = () => {
                                                 </div>
 
                                                 {/* Measurements based on selected preset */}
-                                                {selectedPreset && (
+                                                {selectedPreset && orderEntryMode !== 'manual' && (
                                                     <div className="bg-white rounded-xl p-4 mb-4">
                                                         <div className="flex items-center justify-between mb-3">
                                                             <h4 className="text-sm font-bold text-slate-800">
@@ -1138,80 +1351,259 @@ const NewOrder = () => {
                             </div>
                         </div>
 
-                        {/* Payment & Notes */}
-                        <div className="bg-white border-2 border-dashed border-gray-300 rounded-2xl p-6 mb-6" ref={advancePaymentRef}>
-                            <div className="mb-4">
-                                <label className="block text-sm font-medium text-slate-700 mb-2">
-                                    Payment Mode <span className="text-red-500">*</span>
-                                </label>
-                                <div className="flex flex-wrap gap-3">
-                                    {['Online', 'Cash', 'Pay Later'].map((mode) => (
-                                        <label
-                                            key={mode}
-                                            className={`
-                                                relative flex items-center justify-center px-4 py-2 rounded-lg cursor-pointer border transition-all select-none
-                                                ${customerInfo.paymentMode === mode
-                                                    ? 'bg-[#6b4423] text-white border-[#6b4423] shadow-md'
-                                                    : 'bg-white text-slate-600 border-slate-300 hover:border-[#6b4423] hover:text-[#6b4423]'}
-                                            `}
-                                        >
-                                            <input
-                                                type="radio"
-                                                name="paymentMode"
-                                                value={mode}
-                                                checked={customerInfo.paymentMode === mode}
-                                                onChange={handleCustomerInfoChange}
-                                                className="sr-only"
-                                            />
-                                            <span className="font-medium">{mode}</span>
-                                        </label>
-                                    ))}
-                                </div>
-                            </div>
+                                                {/* Payment & Notes */}
+                        {orderEntryMode === 'manual' ? (
+                            <div className="bg-white border-2 border-dashed border-emerald-300 rounded-2xl p-6 mb-6">
+                                <h3 className="text-lg font-bold text-slate-800 mb-4">Payment</h3>
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-2">
-                                        Advance Payment (₹) {customerInfo.paymentMode !== 'Pay Later' && <span className="text-red-500">*</span>}
-                                    </label>
-                                    <input
-                                        type="number"
-                                        name="advancePayment"
-                                        value={customerInfo.advancePayment}
-                                        onChange={handleCustomerInfoChange}
-                                        min="0"
-                                        step="0.01"
-                                        required={customerInfo.paymentMode !== 'Pay Later'}
-                                        disabled={customerInfo.paymentMode === 'Pay Later'}
-                                        className={`w-full px-4 py-2.5 bg-slate-50 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#6b4423] disabled:opacity-50 disabled:cursor-not-allowed`}
-                                        placeholder={customerInfo.paymentMode === 'Pay Later' ? "Not applicable" : "Required amount"}
-                                        onWheel={(e) => e.target.blur()} // Prevent scroll change
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-2">
-                                        Balance Due
-                                    </label>
-                                    <div className="w-full px-4 py-2.5 bg-slate-100 border border-slate-300 rounded-lg font-bold text-slate-700">
-                                        ₹{(calculateGrandTotal() - (parseFloat(customerInfo.advancePayment) || 0)).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                                    <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">
+                                        <p className="text-[11px] font-semibold text-slate-500 uppercase">Total</p>
+                                        <p className="text-sm font-bold text-slate-800">Rs {getManualPaymentSummary().grossAmount.toFixed(2)}</p>
+                                    </div>
+                                    <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">
+                                        <p className="text-[11px] font-semibold text-slate-500 uppercase">Discount</p>
+                                        <p className="text-sm font-bold text-blue-700">Rs {getManualPaymentSummary().discount.toFixed(2)}</p>
+                                    </div>
+                                    <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">
+                                        <p className="text-[11px] font-semibold text-slate-500 uppercase">Pay Now</p>
+                                        <p className="text-sm font-bold text-emerald-700">Rs {getManualPaymentSummary().payNow.toFixed(2)}</p>
+                                    </div>
+                                    <div className="bg-red-50 p-3 rounded-lg border border-red-200">
+                                        <p className="text-[11px] font-semibold text-red-600 uppercase">Remaining</p>
+                                        <p className="text-sm font-bold text-red-700">Rs {getManualPaymentSummary().remaining.toFixed(2)}</p>
                                     </div>
                                 </div>
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-2">
-                                    General Order Notes
-                                </label>
-                                <textarea
-                                    name="notes"
-                                    value={customerInfo.notes}
-                                    onChange={handleCustomerInfoChange}
-                                    rows="3"
-                                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#6b4423] resize-none"
-                                    placeholder="Any general notes for this order..."
-                                />
-                            </div>
-                        </div>
 
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                                    <div>
+                                        <label className="block text-sm font-medium text-slate-700 mb-2">Discount (Rs)</label>
+                                        <input
+                                            type="number"
+                                            min="0"
+                                            step="0.01"
+                                            value={manualPaymentData.discountAmount}
+                                            onChange={(e) => {
+                                                setManualPaymentData(prev => ({ ...prev, discountAmount: e.target.value }));
+                                                setManualPaymentErrors(prev => ({ ...prev, discountAmount: '' }));
+                                            }}
+                                            className={`w-full px-4 py-2.5 bg-slate-50 border rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 ${manualPaymentErrors.discountAmount ? 'border-red-400' : 'border-slate-300'}`}
+                                            placeholder="0.00"
+                                        />
+                                        {manualPaymentErrors.discountAmount && <p className="text-red-500 text-xs mt-1">{manualPaymentErrors.discountAmount}</p>}
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-slate-700 mb-2">Payment Mode <span className="text-red-500">*</span></label>
+                                        <select
+                                            value={manualPaymentData.paymentMode}
+                                            onChange={(e) => {
+                                                const mode = e.target.value;
+                                                const summary = getManualPaymentSummary();
+                                                setManualPaymentData(prev => ({
+                                                    ...prev,
+                                                    paymentMode: mode,
+                                                    payNowAmount: mode === 'Pay Now'
+                                                        ? String(summary.finalPayable || '')
+                                                        : (mode === 'Pay Later' ? '' : prev.payNowAmount),
+                                                    payLaterDate: mode === 'Pay Now' ? '' : prev.payLaterDate
+                                                }));
+                                                setManualPaymentErrors(prev => ({ ...prev, paymentMode: '' }));
+                                            }}
+                                            className={`w-full px-4 py-2.5 bg-slate-50 border rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 ${manualPaymentErrors.paymentMode ? 'border-red-400' : 'border-slate-300'}`}
+                                        >
+                                            <option value="">Select Mode</option>
+                                            <option value="Pay Now">Pay Now</option>
+                                            <option value="Pay Later">Pay Later</option>
+                                            <option value="Partial">Partial</option>
+                                        </select>
+                                        {manualPaymentErrors.paymentMode && <p className="text-red-500 text-xs mt-1">{manualPaymentErrors.paymentMode}</p>}
+                                    </div>
+                                </div>
+
+                                {(manualPaymentData.paymentMode === 'Pay Now' || manualPaymentData.paymentMode === 'Partial') && (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                                        <div>
+                                            <label className="block text-sm font-medium text-slate-700 mb-2">Pay Now Amount (Rs) <span className="text-red-500">*</span></label>
+                                            <input
+                                                type="number"
+                                                min="0"
+                                                step="0.01"
+                                                value={manualPaymentData.payNowAmount}
+                                                onChange={(e) => {
+                                                    setManualPaymentData(prev => ({ ...prev, payNowAmount: e.target.value }));
+                                                    setManualPaymentErrors(prev => ({ ...prev, payNowAmount: '' }));
+                                                }}
+                                                className={`w-full px-4 py-2.5 bg-slate-50 border rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 ${manualPaymentErrors.payNowAmount ? 'border-red-400' : 'border-slate-300'}`}
+                                                placeholder="Enter amount"
+                                            />
+                                            {manualPaymentErrors.payNowAmount && <p className="text-red-500 text-xs mt-1">{manualPaymentErrors.payNowAmount}</p>}
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-slate-700 mb-2">Payment Method</label>
+                                            <select
+                                                value={manualPaymentData.cashPaymentMode}
+                                                onChange={(e) => {
+                                                    setManualPaymentData(prev => ({ ...prev, cashPaymentMode: e.target.value }));
+                                                    setManualPaymentErrors(prev => ({ ...prev, cashPaymentMode: '' }));
+                                                }}
+                                                className={`w-full px-4 py-2.5 bg-slate-50 border rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 ${manualPaymentErrors.cashPaymentMode ? 'border-red-400' : 'border-slate-300'}`}
+                                            >
+                                                <option value="">Select Method</option>
+                                                <option value="Cash">Cash</option>
+                                                <option value="UPI">UPI</option>
+                                                <option value="Card">Card</option>
+                                                <option value="Online">Online</option>
+                                            </select>
+                                            {manualPaymentErrors.cashPaymentMode && <p className="text-red-500 text-xs mt-1">{manualPaymentErrors.cashPaymentMode}</p>}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {(manualPaymentData.paymentMode === 'Pay Later' || manualPaymentData.paymentMode === 'Partial') && (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                                        <div>
+                                            <label className="block text-sm font-medium text-slate-700 mb-2">Remaining (Pay Later) (Rs)</label>
+                                            <input
+                                                type="text"
+                                                value={getManualPaymentSummary().remaining.toFixed(2)}
+                                                readOnly
+                                                className="w-full px-4 py-2.5 bg-slate-100 border border-slate-300 rounded-lg text-slate-600 font-semibold"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-slate-700 mb-2">Pay Later Date <span className="text-red-500">*</span></label>
+                                            <div className="relative">
+                                                <input
+                                                    type="text"
+                                                    value={manualPaymentData.payLaterDate}
+                                                    onChange={(e) => {
+                                                        let value = e.target.value.replace(/\D/g, '');
+                                                        if (value.length > 2) value = `${value.slice(0, 2)}/${value.slice(2)}`;
+                                                        if (value.length > 5) value = `${value.slice(0, 5)}/${value.slice(5)}`;
+                                                        if (value.length > 10) value = value.slice(0, 10);
+                                                        setManualPaymentData(prev => ({ ...prev, payLaterDate: value }));
+                                                        setManualPaymentErrors(prev => ({ ...prev, payLaterDate: '' }));
+                                                    }}
+                                                    placeholder="DD/MM/YYYY"
+                                                    maxLength={10}
+                                                    className={`w-full pl-4 pr-12 py-2.5 bg-slate-50 border rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 ${manualPaymentErrors.payLaterDate ? 'border-red-400' : 'border-slate-300'}`}
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => manualPayLaterDateRef.current?.showPicker()}
+                                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-amber-600"
+                                                >
+                                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                                    </svg>
+                                                </button>
+                                                <input
+                                                    ref={manualPayLaterDateRef}
+                                                    type="date"
+                                                    min={new Date().toISOString().split('T')[0]}
+                                                    onChange={(e) => {
+                                                        const dateVal = e.target.value;
+                                                        if (dateVal) {
+                                                            const [year, month, day] = dateVal.split('-');
+                                                            setManualPaymentData(prev => ({ ...prev, payLaterDate: `${day}/${month}/${year}` }));
+                                                            setManualPaymentErrors(prev => ({ ...prev, payLaterDate: '' }));
+                                                        }
+                                                    }}
+                                                    className="absolute opacity-0 pointer-events-none w-0 h-0"
+                                                    tabIndex={-1}
+                                                />
+                                            </div>
+                                            {manualPaymentErrors.payLaterDate && <p className="text-red-500 text-xs mt-1">{manualPaymentErrors.payLaterDate}</p>}
+                                        </div>
+                                    </div>
+                                )}
+
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-2">General Order Notes</label>
+                                    <textarea
+                                        name="notes"
+                                        value={customerInfo.notes}
+                                        onChange={handleCustomerInfoChange}
+                                        rows="3"
+                                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#6b4423] resize-none"
+                                        placeholder="Any general notes for this order..."
+                                    />
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="bg-white border-2 border-dashed border-gray-300 rounded-2xl p-6 mb-6" ref={advancePaymentRef}>
+                                <div className="mb-4">
+                                    <label className="block text-sm font-medium text-slate-700 mb-2">
+                                        Payment Mode <span className="text-red-500">*</span>
+                                    </label>
+                                    <div className="flex flex-wrap gap-3">
+                                        {['Online', 'Cash', 'Pay Later'].map((mode) => (
+                                            <label
+                                                key={mode}
+                                                className={`
+                                                    relative flex items-center justify-center px-4 py-2 rounded-lg cursor-pointer border transition-all select-none
+                                                    ${customerInfo.paymentMode === mode
+                                                    ? 'bg-[#6b4423] text-white border-[#6b4423] shadow-md'
+                                                    : 'bg-white text-slate-600 border-slate-300 hover:border-[#6b4423] hover:text-[#6b4423]'}
+                                                `}
+                                            >
+                                                <input
+                                                    type="radio"
+                                                    name="paymentMode"
+                                                    value={mode}
+                                                    checked={customerInfo.paymentMode === mode}
+                                                    onChange={handleCustomerInfoChange}
+                                                    className="sr-only"
+                                                />
+                                                <span className="font-medium">{mode}</span>
+                                            </label>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                                    <div>
+                                        <label className="block text-sm font-medium text-slate-700 mb-2">
+                                            Advance Payment (₹) {customerInfo.paymentMode !== 'Pay Later' && <span className="text-red-500">*</span>}
+                                        </label>
+                                        <input
+                                            type="number"
+                                            name="advancePayment"
+                                            value={customerInfo.advancePayment}
+                                            onChange={handleCustomerInfoChange}
+                                            min="0"
+                                            step="0.01"
+                                            required={customerInfo.paymentMode !== 'Pay Later'}
+                                            disabled={customerInfo.paymentMode === 'Pay Later'}
+                                            className={`w-full px-4 py-2.5 bg-slate-50 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#6b4423] disabled:opacity-50 disabled:cursor-not-allowed`}
+                                            placeholder={customerInfo.paymentMode === 'Pay Later' ? "Not applicable" : "Required amount"}
+                                            onWheel={(e) => e.target.blur()}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-slate-700 mb-2">
+                                            Balance Due
+                                        </label>
+                                        <div className="w-full px-4 py-2.5 bg-slate-100 border border-slate-300 rounded-lg font-bold text-slate-700">
+                                            ₹{(calculateGrandTotal() - (parseFloat(customerInfo.advancePayment) || 0)).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                        </div>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-2">
+                                        General Order Notes
+                                    </label>
+                                    <textarea
+                                        name="notes"
+                                        value={customerInfo.notes}
+                                        onChange={handleCustomerInfoChange}
+                                        rows="3"
+                                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#6b4423] resize-none"
+                                        placeholder="Any general notes for this order..."
+                                    />
+                                </div>
+                            </div>
+                        )}
                         {/* Mobile Spacer to prevent content from being hidden behind fixed buttons */}
                         <div className="h-44 md:hidden"></div>
 
@@ -1222,7 +1614,7 @@ const NewOrder = () => {
                                 disabled={loading}
                                 className="flex-1 md:flex-none px-6 py-3 bg-linear-to-r from-[#6b4423] to-[#8b5a3c] hover:from-[#573619] hover:to-[#6b4423] text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed order-2 md:order-0"
                             >
-                                {loading ? 'Creating...' : 'Create Order'}
+                                {loading ? 'Creating...' : (orderEntryMode === 'manual' ? 'Create Manual Bill' : 'Create Order')}
                             </button>
                         </div>
                     </form>
@@ -1259,27 +1651,17 @@ const NewOrder = () => {
                                 Share the invoice directly with the customer on WhatsApp.
                             </p>
 
-                            <a
-                                href={whatsappLink || '#'}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className={`w-full py-3.5 bg-[#25D366] hover:bg-[#20bd5a] text-white font-bold rounded-xl shadow-lg shadow-green-200 transition-all flex items-center justify-center gap-2 mb-3 ${!whatsappLink ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                onClick={(e) => {
-                                    if (!whatsappLink) {
-                                        e.preventDefault();
-                                        return;
-                                    }
-                                    setTimeout(() => {
-                                        setShowInvoiceModal(false);
-                                        navigate('/dashboard');
-                                    }, 300);
-                                }}
+                            <button
+                                type="button"
+                                onClick={handleShareInvoiceImage}
+                                disabled={!createdOrder?._id}
+                                className={`w-full py-3.5 bg-[#25D366] hover:bg-[#20bd5a] text-white font-bold rounded-xl shadow-lg shadow-green-200 transition-all flex items-center justify-center gap-2 mb-3 ${!createdOrder?._id ? 'opacity-50 cursor-not-allowed' : ''}`}
                             >
                                 <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
                                     <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
                                 </svg>
                                 Share Invoice on WhatsApp
-                            </a>
+                            </button>
 
                             <button
                                 type="button"
@@ -1321,3 +1703,4 @@ const NewOrder = () => {
 };
 
 export default NewOrder;
+

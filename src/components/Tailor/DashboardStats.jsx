@@ -28,6 +28,7 @@ const DashboardStats = ({ tailorId }) => {
 
                 // Calculate work-focused stats
                 const ordersDueToday = orders.filter(order => {
+                    if (order.isManualBill) return false;
                     if (!order.dueDate) return false;
                     if (order.status === 'Delivered' || order.deliveredAt) return false;
                     const dueDate = new Date(order.dueDate);
@@ -36,7 +37,7 @@ const DashboardStats = ({ tailorId }) => {
                 }).length;
 
                 const pendingCutting = orders.filter(order =>
-                    order.status === 'Order Created'
+                    order.status === 'Order Created' && !order.isManualBill
                 ).length;
 
                 const pendingStitching = orders.filter(order =>

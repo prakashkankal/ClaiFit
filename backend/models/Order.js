@@ -144,6 +144,10 @@ const orderSchema = new mongoose.Schema({
         type: String,
         required: false
     },
+    isManualBill: {
+        type: Boolean,
+        default: false
+    },
     cuttingCompletedAt: {
         type: Date,
         required: false

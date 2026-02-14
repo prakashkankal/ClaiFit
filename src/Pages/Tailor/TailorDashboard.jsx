@@ -51,6 +51,7 @@ const TailorDashboard = () => {
             today.setHours(0, 0, 0, 0);
 
             const dueToday = orders.filter(order => {
+                if (order.isManualBill) return false;
                 if (!order.dueDate) return false;
                 if (order.status === 'Delivered' || order.deliveredAt) return false;
                 const dueDate = new Date(order.dueDate);
@@ -59,6 +60,7 @@ const TailorDashboard = () => {
             }).length;
 
             const overdue = orders.filter(order => {
+                if (order.isManualBill) return false;
                 if (!order.dueDate) return false;
                 if (order.status === 'Delivered' || order.deliveredAt) return false;
                 const dueDate = new Date(order.dueDate);
@@ -143,15 +145,17 @@ const TailorDashboard = () => {
             </main>
 
             {/* Mobile Floating Action Button (New Order) */}
-            <button
-                onClick={() => navigate('/new-order')}
-                className="lg:hidden fixed bottom-20 md:bottom-28 right-4 w-12 h-12 bg-linear-to-r from-[#6b4423] to-[#8b5a3c] text-white rounded-full shadow-2xl flex items-center justify-center z-50 hover:scale-110 active:scale-95 transition-all duration-200 ring-4 ring-white"
-                aria-label="New Order"
-            >
-                <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 4v16m8-8H4" />
-                </svg>
-            </button>
+            <div className="lg:hidden fixed bottom-20 md:bottom-28 right-4 z-50 flex flex-col items-end gap-2">
+                <button
+                    onClick={() => navigate('/new-order')}
+                    className="w-12 h-12 bg-linear-to-r from-[#6b4423] to-[#8b5a3c] text-white rounded-full shadow-2xl flex items-center justify-center hover:scale-110 active:scale-95 transition-all duration-200 ring-4 ring-white"
+                    aria-label="New Order"
+                >
+                    <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 4v16m8-8H4" />
+                    </svg>
+                </button>
+            </div>
         </div>
     )
 }

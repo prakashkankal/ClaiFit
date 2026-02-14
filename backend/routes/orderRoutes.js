@@ -286,7 +286,16 @@ router.post('/', async (req, res) => {
             description,
             measurements,
             price,
-            status // Destructure status
+            status, // Destructure status
+            paymentMode,
+            paymentStatus,
+            discountAmount,
+            currentPaymentAmount,
+            remainingAmount,
+            payLaterEnabled,
+            payLaterAmount,
+            payLaterDate,
+            isManualBill
         } = req.body;
 
         // Determine if this is a multi-item or legacy single-item order
@@ -301,7 +310,19 @@ router.post('/', async (req, res) => {
             dueDate,
             notes: notes || '',
             advancePayment: advancePayment || 0,
-            status: status || 'Order Created'
+            status: status || 'Order Created',
+            paymentMode: paymentMode || 'Cash',
+            paymentStatus: paymentStatus || 'unpaid',
+            discountAmount: Number(discountAmount || 0),
+            discount: Number(discountAmount || 0),
+            currentPaymentAmount: Number(currentPaymentAmount || 0),
+            remainingAmount: remainingAmount !== undefined
+                ? Math.max(0, Number(remainingAmount))
+                : Math.max(0, Number((isMultiItem ? orderItems.reduce((sum, item) => sum + (item.totalPrice || 0), 0) : price) || 0) - Number(advancePayment || 0) - Number(discountAmount || 0)),
+            payLaterEnabled: Boolean(payLaterEnabled),
+            payLaterAmount: Number(payLaterAmount || 0),
+            payLaterDate: payLaterDate || undefined,
+            isManualBill: Boolean(isManualBill)
         };
 
         if (isMultiItem) {
@@ -570,7 +591,8 @@ router.put('/:orderId', async (req, res) => {
             orderType,       // Legacy
             description,     // Legacy
             measurements,    // Legacy
-            price
+            price,
+            isManualBill
         } = req.body;
 
         const order = await Order.findById(orderId);
@@ -588,6 +610,9 @@ router.put('/:orderId', async (req, res) => {
         order.dueDate = dueDate;
         order.notes = notes || '';
         order.advancePayment = advancePayment || 0;
+        if (isManualBill !== undefined) {
+            order.isManualBill = Boolean(isManualBill);
+        }
 
         if (status) {
             // Validate transition if changing from Draft

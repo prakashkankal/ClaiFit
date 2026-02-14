@@ -84,13 +84,13 @@ const TailorOrders = () => {
     const FILTER_OPTIONS = [
         'All',
         'Pay Later',
+        'Manual Bill',
         'Payment Completed',
         'Order Created',
         'Cutting Completed',
         'Order Completed',
         'Cancelled',
-        'Delivered',
-        'Remaining'
+        'Delivered'
     ];
 
     const DATE_RANGE_OPTIONS = [
@@ -126,7 +126,7 @@ const TailorOrders = () => {
     const matchesFilter = (order, filter) => {
         if (filter === 'All') return true;
         if (filter === 'Pay Later') return isPayLaterOrder(order);
-        if (filter === 'Remaining') return hasAnyRemainingDue(order);
+        if (filter === 'Manual Bill') return Boolean(order?.isManualBill);
         if (filter === 'Cancelled') return order.status === 'Cancelled' || order.status === 'Canceled';
         return order.status === filter;
     };
@@ -172,11 +172,15 @@ const TailorOrders = () => {
     );
 
     const getOrderStatusLabel = (order) => {
+        if (order?.isManualBill) return 'Manual Bill';
         if (isPayLaterOrder(order)) return 'Pay Later';
         return order.status;
     };
 
     const getOrderStatusBadgeClass = (order) => {
+        if (order?.isManualBill) {
+            return 'bg-violet-100 text-violet-700 border border-violet-200';
+        }
         if (isPayLaterOrder(order)) {
             return 'bg-orange-100 text-orange-700 border border-orange-200';
         }
@@ -299,64 +303,77 @@ const TailorOrders = () => {
             />
 
             {/* Main Content */}
-            <main className="flex-1 lg:ml-72 p-3 pb-24 md:p-6 lg:p-8 dashboard-main-mobile min-w-0">
-                <header className="mb-6 md:mb-8 flex items-start justify-between gap-3">
-                    <div>
-                        <h1 className="text-2xl md:text-3xl font-serif font-bold text-slate-800 mb-1 md:mb-2">Orders</h1>
-                        <p className="text-sm md:text-base text-slate-500">Manage all your customer orders</p>
+            <main className="flex-1 lg:ml-72 p-3 pb-22 md:p-6 lg:p-8 dashboard-main-mobile min-w-0">
+                <header className="mb-4 md:mb-8 flex items-start justify-between gap-2 md:gap-3">
+                    <div className="min-w-0">
+                        <h1 className="text-[30px] md:text-3xl font-serif font-bold text-slate-800 leading-none mb-1">Orders</h1>
+                        <p className="text-xs md:text-base text-slate-500 leading-tight [@media(max-height:760px)]:text-[11px]">Manage all your customer orders</p>
                     </div>
-                    <div className="shrink-0">
-                        <label className="block text-[11px] md:text-xs font-semibold text-slate-500 mb-1">
+                    <div className="shrink-0 w-[122px] md:w-auto">
+                        <label className="block text-[10px] md:text-xs font-semibold text-slate-500 mb-1 leading-tight">
                             Sort by Time
                         </label>
-                        <select
-                            value={selectedDateRange}
-                            onChange={(e) => setSelectedDateRange(e.target.value)}
-                            aria-label="Sort orders by time range"
-                            style={{ color: '#334155', WebkitTextFillColor: '#334155' }}
-                            className="h-12 md:h-12 min-w-[120px] md:min-w-[168px] rounded-lg border border-slate-300 bg-white px-2 pr-6 md:px-3 md:pr-8 text-xs md:text-sm leading-5 font-medium text-slate-700 outline-none focus:ring-2 focus:ring-[#6b4423]/20 focus:border-[#6b4423]"
-                        >
-                            {DATE_RANGE_OPTIONS.map((range) => (
-                                <option key={range.value} value={range.value}>
-                                    {range.label}
-                                </option>
-                            ))}
-                        </select>
+                        <div className="relative">
+                            <select
+                                value={selectedDateRange}
+                                onChange={(e) => setSelectedDateRange(e.target.value)}
+                                aria-label="Sort orders by time range"
+                                className="h-11 md:h-14 w-full md:min-w-[168px] rounded-lg border border-slate-300 bg-white pl-2 pr-7 md:pl-3 md:pr-9 text-[8px] md:text-[8px] text-slate-800 leading-tight appearance-none outline-none focus:ring-2 focus:ring-[#6b4423]/20 focus:border-[#6b4423]"
+                            >
+                                {DATE_RANGE_OPTIONS.map((range) => (
+                                    <option
+                                        key={range.value}
+                                        value={range.value}
+                                        className="bg-white text-slate-800"
+                                    >
+                                        {range.label}
+                                    </option>
+                                ))}
+                            </select>
+                            <svg
+                                className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-600"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                            >
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
+                            </svg>
+                        </div>
                     </div>
                 </header>
 
                 {/* Stats Cards - Synced for Mobile & Desktop */}
-                <div className="grid grid-cols-3 md:grid-cols-5 lg:grid-cols-5 gap-2 md:gap-4 mb-6 md:mb-8">
-                    <div className="bg-white border border-slate-200 p-3 md:p-6 rounded-xl md:rounded-2xl shadow-sm">
-                        <p className="text-slate-500 text-[10px] md:text-sm font-medium mb-0.5 md:mb-1 uppercase tracking-wider md:normal-case">Total</p>
-                        <p className="text-xl md:text-3xl font-bold text-slate-900">{stats.total}</p>
+                <div className="grid grid-cols-3 md:grid-cols-5 lg:grid-cols-5 gap-2 md:gap-4 mb-4 md:mb-8">
+                    <div className="bg-white border border-slate-200 p-2.5 md:p-6 rounded-xl md:rounded-2xl shadow-sm">
+                        <p className="text-slate-500 text-[9px] md:text-sm font-medium mb-0.5 uppercase tracking-wide leading-tight">Total</p>
+                        <p className="text-lg md:text-3xl font-bold text-slate-900 leading-none">{stats.total}</p>
                     </div>
-                    <div className="bg-white border border-slate-200 p-3 md:p-6 rounded-xl md:rounded-2xl shadow-sm">
-                        <p className="text-slate-500 text-[10px] md:text-sm font-medium mb-0.5 md:mb-1 uppercase tracking-wider md:normal-case">Order Created</p>
-                        <p className="text-xl md:text-3xl font-bold text-amber-600">{stats.orderCreated}</p>
+                    <div className="bg-white border border-slate-200 p-2.5 md:p-6 rounded-xl md:rounded-2xl shadow-sm">
+                        <p className="text-slate-500 text-[9px] md:text-sm font-medium mb-0.5 uppercase tracking-wide leading-tight">Order Created</p>
+                        <p className="text-lg md:text-3xl font-bold text-amber-600 leading-none">{stats.orderCreated}</p>
                     </div>
-                    <div className="bg-white border border-slate-200 p-3 md:p-6 rounded-xl md:rounded-2xl shadow-sm">
-                        <p className="text-slate-500 text-[10px] md:text-sm font-medium mb-0.5 md:mb-1 uppercase tracking-wider md:normal-case">Cutting Done</p>
-                        <p className="text-xl md:text-3xl font-bold text-blue-600">{stats.cuttingCompleted}</p>
+                    <div className="bg-white border border-slate-200 p-2.5 md:p-6 rounded-xl md:rounded-2xl shadow-sm">
+                        <p className="text-slate-500 text-[9px] md:text-sm font-medium mb-0.5 uppercase tracking-wide leading-tight">Cutting Done</p>
+                        <p className="text-lg md:text-3xl font-bold text-blue-600 leading-none">{stats.cuttingCompleted}</p>
                     </div>
-                    <div className="bg-white border border-slate-200 p-3 md:p-6 rounded-xl md:rounded-2xl shadow-sm">
-                        <p className="text-slate-500 text-[10px] md:text-sm font-medium mb-0.5 md:mb-1 uppercase tracking-wider md:normal-case">Payment Done</p>
-                        <p className="text-xl md:text-3xl font-bold text-indigo-600">{stats.paymentCompleted}</p>
+                    <div className="bg-white border border-slate-200 p-2.5 md:p-6 rounded-xl md:rounded-2xl shadow-sm">
+                        <p className="text-slate-500 text-[9px] md:text-sm font-medium mb-0.5 uppercase tracking-wide leading-tight">Payment Done</p>
+                        <p className="text-lg md:text-3xl font-bold text-indigo-600 leading-none">{stats.paymentCompleted}</p>
                     </div>
-                    <div className="bg-white border border-slate-200 p-3 md:p-6 rounded-xl md:rounded-2xl shadow-sm">
-                        <p className="text-slate-500 text-[10px] md:text-sm font-medium mb-0.5 md:mb-1 uppercase tracking-wider md:normal-case">Pay Later</p>
-                        <p className="text-xl md:text-3xl font-bold text-orange-600">{stats.payLater}</p>
+                    <div className="bg-white border border-slate-200 p-2.5 md:p-6 rounded-xl md:rounded-2xl shadow-sm">
+                        <p className="text-slate-500 text-[9px] md:text-sm font-medium mb-0.5 uppercase tracking-wide leading-tight">Pay Later</p>
+                        <p className="text-lg md:text-3xl font-bold text-orange-600 leading-none">{stats.payLater}</p>
                     </div>
                 </div>
 
                 {/* Status Filters - Redesigned for Mobile (Horizontal Pills) */}
-                <div className="mb-6 overflow-x-auto no-scrollbar pb-2">
+                <div className="mb-4 overflow-x-auto no-scrollbar pb-1">
                     <div className="flex gap-2 min-w-max md:flex-wrap md:min-w-0">
                         {FILTER_OPTIONS.map((status) => (
                             <button
                                 key={status}
                                 onClick={() => setSelectedStatus(status)}
-                                className={`px-4 py-2 rounded-full text-xs md:text-sm font-medium transition-all whitespace-nowrap ${selectedStatus === status
+                                className={`px-3 py-1.5 rounded-full text-[11px] md:text-sm font-medium transition-all whitespace-nowrap ${selectedStatus === status
                                     ? 'bg-[#6b4423] text-white shadow-md'
                                     : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
                                     }`}
@@ -368,7 +385,7 @@ const TailorOrders = () => {
                 </div>
 
                 {/* Orders Section Title */}
-                <h2 className="text-lg md:text-xl font-bold text-slate-800 mb-4 px-1">Orders</h2>
+                <h2 className="text-xl md:text-xl font-bold text-slate-800 mb-3 px-1 leading-none">Orders</h2>
 
                 {/* Orders Display */}
                 {/* Orders Display */}
@@ -440,30 +457,30 @@ const TailorOrders = () => {
                                         <div
                                             key={order._id}
                                             onClick={() => navigate(`/orders/${order._id}`)}
-                                            className="flex items-center justify-between p-3 active:bg-slate-50 transition-colors cursor-pointer min-h-[72px]"
+                                            className="flex items-center justify-between p-2.5 active:bg-slate-50 transition-colors cursor-pointer min-h-[66px]"
                                         >
                                             {/* Left: Customer & ID */}
-                                            <div className="flex flex-col min-w-0 flex-1 pr-3">
-                                                <p className="text-base font-bold text-slate-800 truncate mb-0.5">
+                                            <div className="flex flex-col min-w-0 flex-1 pr-2">
+                                                <p className="text-xl font-bold text-slate-800 leading-tight break-words">
                                                     {order.customerName}
                                                 </p>
-                                                <div className="flex items-center gap-2">
-                                                    <span className="text-xs font-medium text-slate-500">
+                                                <div className="flex items-center gap-1.5 mt-0.5">
+                                                    <span className="text-[11px] font-medium text-slate-500">
                                                         #{order._id.slice(-6).toUpperCase()}
                                                     </span>
                                                     <span className="text-[10px] text-slate-400">•</span>
-                                                    <span className="text-xs font-bold text-slate-700">
+                                                    <span className="text-[12px] font-bold text-slate-700">
                                                         {formatPrice(order.price)}
                                                     </span>
                                                 </div>
                                             </div>
 
                                             {/* Center: Status & Due Date */}
-                                            <div className="flex flex-col items-center min-w-[100px] px-2">
-                                                <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold mb-1 whitespace-nowrap ${getOrderStatusBadgeClass(order)}`}>
+                                            <div className="flex flex-col items-center min-w-[88px] px-1">
+                                                <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold mb-1 whitespace-nowrap leading-tight ${getOrderStatusBadgeClass(order)}`}>
                                                     {getOrderStatusLabel(order)}
                                                 </span>
-                                                <span className={`text-xs ${dateClass} text-center`}>
+                                                <span className={`text-[11px] ${dateClass} text-center leading-tight`}>
                                                     {dateText.replace(/ \(.*\)/, '')}
                                                     {dateText.includes('overdue') && <span className="block text-[10px] font-extrabold text-red-600">Overdue</span>}
                                                     {dateText.includes('Today') && <span className="block text-[10px] font-extrabold text-orange-600">Today</span>}
@@ -473,16 +490,16 @@ const TailorOrders = () => {
 
                                             {/* Right: Actions Menu */}
                                             <div
-                                                className="pl-3 shrink-0"
+                                                className="pl-2 shrink-0"
                                                 onClick={(e) => e.stopPropagation()}
                                             >
                                                 <div className="relative">
                                                     <button
                                                         onClick={() => setOpenMenuId(openMenuId === order._id ? null : order._id)}
-                                                        className="w-10 h-10 bg-slate-100 text-slate-600 rounded-full flex items-center justify-center hover:bg-slate-200 active:scale-95 transition-all outline-none"
+                                                        className="w-9 h-9 bg-slate-100 text-slate-600 rounded-full flex items-center justify-center hover:bg-slate-200 active:scale-95 transition-all outline-none"
                                                         aria-label="Order actions"
                                                     >
-                                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v.01M12 12v.01M12 18v.01" />
                                                         </svg>
                                                     </button>
@@ -567,7 +584,7 @@ const TailorOrders = () => {
                                                             className="w-9 h-9 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center"
                                                             aria-label="Order actions"
                                                         >
-                                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v.01M12 12v.01M12 18v.01" />
                                                             </svg>
                                                         </button>
@@ -622,3 +639,4 @@ const TailorOrders = () => {
 }
 
 export default TailorOrders
+
